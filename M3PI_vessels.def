@@ -185,6 +185,17 @@ python3 fslinstaller.py -d /opt/fsl-{{ FSL_VER }} -V {{ FSL_VER }}
 cd ${TMPDIR} || exit 1
 rm -rf ${TMPDIR}/fsl
 
+# Install MRTrix3
+mkdir -p ${TMPDIR}/mrtrix
+git clone -b {{ MRTRIX_VER }} --depth=1 https://github.com/MRtrix3/mrtrix3.git ${TMPDIR}/mrtrix
+cd ${TMPDIR}/mrtrix/build || exit 1
+./configure
+./build
+mkdir -p /opt/mrtrix3-{{ MRTRIX_VER }}
+mv bin icons lib LICENSE.txt matlab share /opt/mrtrix3-{{ MRTRIX_VER }}/.
+cd ${TMPDIR} || exit 1
+rm -rf ${TMPDIR}/mrtrix
+
 # Install PYTHON things.
 pip3 install pip==25.1.1 setuptools==80.7.1 wheel==0.45.1
 
