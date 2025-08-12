@@ -1,9 +1,115 @@
 #!/usr/bin/env bash
 
 version() {
+	local script_file=${1:-''}
 	tag=$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; git describe --tags --always)
-	echo "M3PI_vessels version ${tag}"
+	echo "M3PI_preproc, $( basename ${script_file} ), version ${tag}"
 	echo ""
+}
+
+displayhelp() {
+	local script_file=$1
+	local exit_code=${2:-0}
+
+	if [[ -z ${script_file} ]]
+	then
+		echo "displayhelp requires the script filename as the first argument"
+		exit 3
+	fi
+
+	version ${script_file}
+
+	# Extract case block into required and optional
+	awk '
+		/case[ \t]*"\$1"/ { in_case=1; in_req=1; next }
+		in_case {
+			if ($0 ~ /^$/ && in_req) { in_req=0; next }  # switch to optional
+			if (/esac/) { in_case=0; next }              # end of case block
+
+			# Match only lines that look like a case flag
+			if ($0 ~ /^[ \t]*-/) {
+				# Capture: flag, code between ) and ;;, and optional comment
+				match($0, /^ *(-[^) \t]*)[ \t]*\)[ \t]*([^;#]*).*#?(.*)$/, linepart)
+				flag = linepart[1]
+				code = linepart[2]
+				desc = linepart[3]
+
+				gsub(/^[ \t]+|[ \t]+$/, "", code)
+				gsub(/^[ \t]+|[ \t]+$/, "", desc)
+
+				# If no comment, try to use the variable being set as description
+				if (desc == "" && code != "") {
+					# Extract variable name from something like "varname=$2"
+					if (match(code, /^([A-Za-z_][A-Za-z0-9_]*)=/, varname)) {
+						desc = "(sets " varname[1] ")"
+					}
+				}
+				if (desc == "") desc = "(no description)"
+
+				if (in_req) {
+					req_flags[++n_req] = flag
+					req_desc[n_req] = desc
+					if (length(flag) > maxlen_req) maxlen_req = length(flag)
+				} else {
+					opt_flags[++n_opt] = flag
+					opt_desc[n_opt] = desc
+					if (length(flag) > maxlen_opt) maxlen_opt = length(flag)
+				}
+			}
+		}
+		END {
+			print "Required arguments:"
+			for (i=1; i<=n_req; i++) {
+				printf "  %-*s  %s\n", maxlen_req, req_flags[i], req_desc[i]
+			}
+			if (n_opt > 0) {
+				print ""
+				print "Optional arguments:"
+				for (i=1; i<=n_opt; i++) {
+					printf "  %-*s  %s\n", maxlen_opt, opt_flags[i], opt_desc[i]
+				}
+			}
+		}
+	' "${script_file}"
+
+	# Only show presets if optional flags exist
+	if awk '
+		/case[ \t]*"\$1"/ { in_case=1; in_req=1; next }
+		in_case {
+			if ($0 ~ /^$/ && in_req) { in_req=0; next }
+			if (/esac/) exit
+			if (!in_req) { found=1; exit }
+		}
+		END { exit !found }
+	' "${script_file}"
+	then
+		echo
+		echo "Default values of optional arguments:"
+		awk '
+			BEGIN { maxlen = 0 }
+			/^# Preparing the default values for variables/ { in_defaults=1; next }
+			in_defaults {
+				if (/^###/) exit
+				if ($0 ~ /^[[:space:]]*$/) next
+				split($0, parts, "=")
+				varname = parts[1]
+				gsub(/[ \t]+$/, "", varname)
+				defaults[++n] = $0
+				if (length(varname) > maxlen) maxlen = length(varname)
+			}
+			END {
+				for (i=1; i<=n; i++) {
+					split(defaults[i], parts, "=")
+					varname = parts[1]
+					gsub(/[ \t]+$/, "", varname)
+					value = substr(defaults[i], length(varname)+2)  # skip = and space
+					printf "  %-*s = %s\n", maxlen, varname, value
+				}
+			}
+		' "${script_file}"
+	fi
+
+	exit ${exit_code}
 }
 
 # Check input
