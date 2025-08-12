@@ -114,25 +114,46 @@ displayhelp() {
 
 # Check input
 checkreqvar() {
-	reqvar=( "$@" )
+	local reqvar=("$@")
+	local vartype
 
-	for var in "${reqvar[@]}"
-	do
-		if [[ -z ${!var+x} ]]
-		then
+	for var in "${reqvar[@]}"; do
+		if [[ -z ${!var+x} ]]; then
 			echo "${var} is unset, exiting program" && exit 1
+		fi
+
+		vartype=$(declare -p ${var} 2>/dev/null)
+
+		if [[ ${vartype} =~ declare\ \-a\ ([A-Za-z_][A-Za-z0-9_]*)=([\'\"])?(.*)\2 ]]
+		then
+			echo "${var} is an indexed array ${BASH_REMATCH[3]}"
+		elif [[ ${vartype} =~ declare\ \-A\ ([A-Za-z_][A-Za-z0-9_]*)=([\'\"])?(.*)\2 ]]
+		then
+			echo "${var} is an associative array ${BASH_REMATCH[3]}"
 		else
 			echo "${var} is set to ${!var}"
 		fi
 	done
 }
 
+
 checkoptvar() {
-	optvar=( "$@" )
+	local optvar=("$@")
+	local vartype
 
 	for var in "${optvar[@]}"
 	do
-		echo "${var} is set to ${!var}"
+		vartype=$(declare -p ${var} 2>/dev/null)
+
+		if [[ ${vartype} =~ declare\ \-a\ ([A-Za-z_][A-Za-z0-9_]*)=([\'\"])?(.*)\2 ]]
+		then
+			echo "${var} is an indexed array ${BASH_REMATCH[3]}"
+		elif [[ ${vartype} =~ declare\ \-A\ ([A-Za-z_][A-Za-z0-9_]*)=([\'\"])?(.*)\2 ]]
+		then
+			echo "${var} is an associative array ${BASH_REMATCH[3]}"
+		else
+			echo "${var} is set to ${!var}"
+		fi
 	done
 }
 
