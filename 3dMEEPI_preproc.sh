@@ -106,19 +106,19 @@ echo ""
 echo ""
 
 # Parse anat filename and force right folder's absolute path pt. 2
-[[ "$anatname" =~ sub-([^_]+)_ses-([^_]+)(_acq-([^_]+))?(_run-([^_]+))?(_echo-([^_]+))? ]] && \
+[[ "$anatname" =~ sub-([^_]+)_ses-([^_]+)(_acq-([^_]+))?(_run-([^_]+))?(_echo-([^_]+))_([^\.]+)$ ]] && \
 	sub=${BASH_REMATCH[1]} && \
 	ses=${BASH_REMATCH[2]} && \
 	acq=${BASH_REMATCH[4]:-} && \
 	run=${BASH_REMATCH[6]:-} && \
-	echo=${BASH_REMATCH[8]:-}
+	echo=${BASH_REMATCH[8]:-} && \
+	anatsuffix=${BASH_REMATCH[9]}
 
 adir=${workdir}/sub-${sub}/ses-${ses}/anat
 aderivdir=${workdir}/derivatives/vessels/sub-${sub}/ses-${ses}/anat
 rderivdir=${workdir}/derivatives/vessels/sub-${sub}/ses-${ses}/reg
 regref=${workdir}/derivatives/vessels/sub-${sub}/ses-17T/reg/sub-${sub}_vesselref.nii.gz
 anatprefix=sub-${sub}_ses-${ses}
-anatsuffix=${anatname#*_echo-?_}
 tmp=${tmp}/sub-${sub}_ses-${ses}_vesselsbfc
 
 # First return of variables discovered so far
