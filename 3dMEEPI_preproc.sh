@@ -3,19 +3,11 @@
 # shellcheck source=./utils.sh
 source $( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/utils.sh
 
-displayhelp() {
-echo "Required:"
-echo "anat"
-echo "Optional:"
-echo "aref tmp"
-exit ${1:-0}
-}
-
 # Check if there is input
 
 if [[ ( $# -eq 0 ) ]]
 then
-	displayhelp
+	displayhelp $0 1
 fi
 
 # Preparing the default values for variables
@@ -32,15 +24,15 @@ printcall="${printline} $*"
 while [ ! -z "$1" ]
 do
 	case "$1" in
-		-anat)		anat=$2;shift;;
+		-anat)		anat=$2;shift;;		# Any 3dMEEPI of an echo/acq/run series, the others will be found automatically.
 
-		-TEs)		TEs="$2";shift;;
-		-tmp)		tmp=$2;shift;;
-		-debug)		debug=yes;;
+		-TEs)		TEs="$2";shift;;	# Echo Times of the expected input. Must be specified within " "
+		-tmp)		tmp=$2;shift;;		# Folder for temporary files. If not in debug mode, it'll be deleted at the end.
+		-debug)		debug=yes;;			# Turn on debug mode.
 
-		-h)			displayhelp;;
-		-v)			version;exit 0;;
-		*)			echo "Wrong flag: $1";displayhelp 1;;
+		-h)			displayhelp $0;;	# Display this help.
+		-v)			version $0;exit 0;;	# Display the version.
+		*)			echo "Wrong flag: $1";displayhelp 1;; # Anything else is wrong!
 	esac
 	shift
 done
