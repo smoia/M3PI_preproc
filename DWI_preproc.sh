@@ -104,7 +104,7 @@ echo ""
 echo ""
 
 # Parse dwi filename and force right folder's absolute path pt. 2
-[[ "$dwiname" =~ ^sub-([0-9]+)_ses-([0-9]+)_(acq-([^_]+))_([^\.]+)\.nii\.gz$ ]] && \
+[[ "$dwiname" =~ ^sub-([0-9]+)_ses-([0-9]+)_(acq-([^_]+))_([^\.]+)$ ]] && \
 	sub=${BASH_REMATCH[1]} && \
 	ses=${BASH_REMATCH[2]} && \
 	acq=${BASH_REMATCH[4]:-} && \
@@ -136,6 +136,8 @@ if_missing_do mkdir ${rderivdir}
 # What to do, the rest is old stuff
 # See https://community.mrtrix.org/t/dwidenoise-correct-use/586/4
 # And https://community.mrtrix.org/t/combining-two-dwi-images-with-b800-and-b2000/7115
+
+
 
 
 # mrconvert each file
