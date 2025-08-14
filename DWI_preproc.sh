@@ -124,11 +124,12 @@ if_missing_do mkdir ${rderivdir}
 [[ ! -d ${dderivdir} ]] && exit 2
 [[ ! -d ${rderivdir} ]] && exit 2
 
+declare -A dwifilevols
 
 for dwifile in ${dwiprefix}_*_${dwisuffix}.nii.gz
 do
 	# Not sure we need to skip the fake b0
-	# [[ ${dwifile} == *"acq-7db0"* ]] && continue
+	[[ ${dwifile} == *"acq-7db0"* ]] && dwifilevols["7db0"]=$( fslval ${dwifile} dim4 )
 	dwifile=$( basename $( removeniisfx ${dwifile} ) )
 
 	echo ""
@@ -147,6 +148,9 @@ do
 		mrdegibbs ${tmp}/${dwifile}.mif ${tmp}/${dwifile}_degibbs.mif
 		dwisuffix=${dwisuffix}_degibbs
 	fi
+
+	# Populate array of file dimensions for use with eddy
+	[[ "$dwifile" =~ _acq-([^_]+) ]] && dwifilevols["${BASH_REMATCH[1]}"]=$( fslval ${dwifile} dim4 )
 done
 
 dwicat ${tmp}/${dwiprefix}_*_${dwisuffix}.mif ${tmp}/${dwiprefix}_concat.mif
@@ -180,16 +184,20 @@ ${scriptdir}/blocks/pepolar.sh -nii ${ddir}/${dwiprefix}_acq-7db0_sbref -pepolar
 							   -workdir ${workdir}/derivatives/vessels -modality dwi -debug ${debug} -tmp ${tmp}
 
 # Use corrected blipup to make a brain mask
-bet ${tmp}/${dwiprefix}_acq-7db0_sbref_tpp ${tmp}/${dwiprefix}_dwi_tpp_brain -R -f 0.5 -g 0 -n -m
-mv ${tmp}/${dwiprefix}_dwi_tpp_brain_mask.nii.gz ${dderivdir}/.
+bet ${tmp}/${dwiprefix}_acq-7db0_sbref_tpp ${tmp}/${dwiprefix}_dwi_brain -R -f 0.5 -g 0 -n -m
+mv ${tmp}/${dwiprefix}_dwi_brain_mask.nii.gz ${dderivdir}/.
 
 # Also create a combined mask from distorted files to use for eddy
 fslmaths ${tmp}/${dwiprefix}_denoised -Tmean ${tmp}/avg_dwi
 bet ${tmp}/avg_dwi ${tmp}/avg_dwi_brain -R -f 0.5 -g 0 -n -m
 
 # Run eddy (although very uncertain about HOW)
-eddy --imain=${tmp}/${dwiprefix}_denoised.nii.gz --mask=${tmp}/avg_dwi_brain_mask --acqp=${pepolardir}/acqparam.txt \
-	 -out=${tmp}/${dwiprefix}_eddied --bvecs=${dderivdir}/${dwiprefix}_concat.bvec --bvals=${dderivdir}/${dwiprefix}_concat.bval
+eddy --imain=${tmp}/${dwiprefix}_denoised.nii.gz --mask=${dderivdir}/${dwiprefix}_dwi_brain_mask \
+	 --acqp=${pepolardir}/acqparam.txt --topup=${pepolardir}/outtp \
+	 --bvecs=${dderivdir}/${dwiprefix}_concat.bvec --bvals=${dderivdir}/${dwiprefix}_concat.bval \
+	 --json=${dwifile}.json \
+	 --out=${tmp}/${dwiprefix}_eddied
+	 # --index is still missing!
 
 # Bias field correction (why only now?) with ants N4
 # 02.2. Bias Correction
