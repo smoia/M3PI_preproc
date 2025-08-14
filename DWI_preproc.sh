@@ -124,12 +124,10 @@ if_missing_do mkdir ${rderivdir}
 [[ ! -d ${dderivdir} ]] && exit 2
 [[ ! -d ${rderivdir} ]] && exit 2
 
-declare -A dwifilevols
-
 for dwifile in ${dwiprefix}_*_${dwisuffix}.nii.gz
 do
 	# Not sure we need to skip the fake b0
-	[[ ${dwifile} == *"acq-7db0"* ]] && dwifilevols["7db0"]=$( fslval ${dwifile} dim4 )
+	[[ ${dwifile} == *"acq-7db0"* ]] &&continue
 	dwifile=$( basename $( removeniisfx ${dwifile} ) )
 
 	echo ""
@@ -148,9 +146,6 @@ do
 		mrdegibbs ${tmp}/${dwifile}.mif ${tmp}/${dwifile}_degibbs.mif
 		dwisuffix=${dwisuffix}_degibbs
 	fi
-
-	# Populate array of file dimensions for use with eddy
-	[[ "$dwifile" =~ _acq-([^_]+) ]] && dwifilevols["${BASH_REMATCH[1]}"]=$( fslval ${dwifile} dim4 )
 done
 
 dwicat ${tmp}/${dwiprefix}_*_${dwisuffix}.mif ${tmp}/${dwiprefix}_concat.mif
@@ -191,13 +186,17 @@ mv ${tmp}/${dwiprefix}_dwi_brain_mask.nii.gz ${dderivdir}/.
 fslmaths ${tmp}/${dwiprefix}_denoised -Tmean ${tmp}/avg_dwi
 bet ${tmp}/avg_dwi ${tmp}/avg_dwi_brain -R -f 0.5 -g 0 -n -m
 
+# Prepare index file for eddy
+
+replace_and touch ${tmp}/eddyindex
+for i in $( seq 1 $( fslval ${tmp}/${dwiprefix}_denoised dim4 ) ); do echo " 1" >> ${tmp}/eddyindex; done
+
 # Run eddy (although very uncertain about HOW)
 eddy --imain=${tmp}/${dwiprefix}_denoised.nii.gz --mask=${dderivdir}/${dwiprefix}_dwi_brain_mask \
-	 --acqp=${pepolardir}/acqparam.txt --topup=${pepolardir}/outtp \
+	 --acqp=${pepolardir}/acqparam.txt --topup=${pepolardir}/outtp --index=${tmp}/eddyindex \
 	 --bvecs=${dderivdir}/${dwiprefix}_concat.bvec --bvals=${dderivdir}/${dwiprefix}_concat.bval \
-	 --json=${dwifile}.json \
+	 --json=${dwifile}.json --nthr=${nthreads} \
 	 --out=${tmp}/${dwiprefix}_eddied
-	 # --index is still missing!
 
 # Bias field correction (why only now?) with ants N4
 # 02.2. Bias Correction
