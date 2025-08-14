@@ -96,7 +96,7 @@ then
 	fi
 
 	echo "Computing PEpolar map for ${niiname}"
-	topup --imain=${nderivdir}/mgdmap --datain=${pepolardir}/acqparam.txt --out=${nderivdir}/outtp --verbose
+	topup --imain=${pepolardir}/mgdmap --datain=${pepolardir}/acqparam.txt --out=${pepolardir}/outtp --verbose
 
 # If there isn't an estimated file and no image was given, break it.
 elif [[ ${pepolardir} == "none" && ! -d ${nderivdir}/${niiname}_topup && ( ${blipup} == "none" || ${blipdown} == "none" ) ]]
