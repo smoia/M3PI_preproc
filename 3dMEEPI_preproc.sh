@@ -4,11 +4,7 @@
 source $( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/utils.sh
 
 # Check if there is input
-
-if [[ ( $# -eq 0 ) ]]
-then
-	displayhelp $0 1
-fi
+[[ ( $# -eq 0 ) ]] && displayhelp $0 1
 
 # Preparing the default values for variables
 tmp=/tmp
