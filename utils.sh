@@ -29,10 +29,10 @@ displayhelp() {
 			# Match only lines that look like a case flag
 			if ($0 ~ /^[ \t]*-/) {
 				# Capture: flag, code between ) and ;;, and optional comment
-				match($0, /^ *(-[^) \t]*)[ \t]*\)[ \t]*([^;#]*).*#?(.*)$/, linepart)
+				match($0, /^[ \t]*(-[^) \t]*)[ \t]*\)[ \t]*([^#]*?);;[ \t]*(#(.*))?$/, linepart)
 				flag = linepart[1]
 				code = linepart[2]
-				desc = linepart[3]
+				desc = linepart[4]
 
 				gsub(/^[ \t]+|[ \t]+$/, "", code)
 				gsub(/^[ \t]+|[ \t]+$/, "", desc)
