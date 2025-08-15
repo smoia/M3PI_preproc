@@ -49,24 +49,23 @@ displayhelp() {
 				if (in_req) {
 					req_flags[++n_req] = flag
 					req_desc[n_req] = desc
-					if (length(flag) > maxlen_req) maxlen_req = length(flag)
 				} else {
 					opt_flags[++n_opt] = flag
 					opt_desc[n_opt] = desc
-					if (length(flag) > maxlen_opt) maxlen_opt = length(flag)
 				}
+				if (length(flag) > maxlen) maxlen = length(flag)
 			}
 		}
 		END {
 			print "Required arguments:"
 			for (i=1; i<=n_req; i++) {
-				printf "  %-*s  %s\n", maxlen_req, req_flags[i], req_desc[i]
+				printf "  %-*s  %s\n", maxlen, req_flags[i], req_desc[i]
 			}
 			if (n_opt > 0) {
 				print ""
 				print "Optional arguments:"
 				for (i=1; i<=n_opt; i++) {
-					printf "  %-*s  %s\n", maxlen_opt, opt_flags[i], opt_desc[i]
+					printf "  %-*s  %s\n", maxlen, opt_flags[i], opt_desc[i]
 				}
 			}
 		}
