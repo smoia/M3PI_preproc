@@ -38,7 +38,7 @@ done
 
 # Check input
 checkreqvar dwi
-checkoptvar degibbs tmp debug
+checkoptvar degibbs nthreads tmp debug
 
 [[ ${debug} == "yes" ]] && set -x
 
@@ -120,9 +120,6 @@ cd ${ddir} || exit 1
 replace_and mkdir ${tmp}
 if_missing_do mkdir ${dderivdir}
 if_missing_do mkdir ${rderivdir}
-
-[[ ! -d ${dderivdir} ]] && exit 2
-[[ ! -d ${rderivdir} ]] && exit 2
 
 for dwifile in ${dwiprefix}_*_${dwisuffix}.nii.gz
 do
