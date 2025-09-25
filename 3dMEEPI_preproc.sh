@@ -223,15 +223,17 @@ do
 	# [ you can substitute this average step with your code if you prefer ]
 	3dMean -prefix ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${tmp}/${anatfile}_echo-?_${anatsuffix}_bfc.nii.gz
 
-	# sampling
-	alias python=/usr/bin/python
-	alias python3=/usr/bin/python3
-	echo "--------------"
-	echo "Running resampling"
-	echo "--------------"
-	echo "Python: $( which python ) $( which python3 )"
-
-	${scriptdir}/resample.py ${tmp} ${anatfile} ${anatsuffix} 
+	for imgtype in echoavg optcom t2star
+	do
+		imgfile=${tmp}/${anatfile}_${imgtype}_${anatsuffix}.nii.gz
+		x=$( fslval ${imgfile} dim1 ) 
+		y=$( fslval ${imgfile} dim2 ) 
+		z=$( fslval ${imgfile} dim3 )
+		(( x*=2 ))
+		(( y*=2 ))
+		(( z*=2 ))
+		ResampleImage 3 ${imgfile}.nii.gz ${tmp}/${anatfile}_${imgtype}_upsampled_${anatsuffix}.nii.gz ${x}x${y}x${z} 1 0
+	done
 
 	# realign to vesselref (first file in input)
 	echo ""
@@ -267,27 +269,25 @@ echo ""
 echo ""
 
 # Average all echo averages, optcoms, and t2* maps
-3dMean -prefix ${aderivdir}/00.${anatprefix}_${anatsuffix}_esavgd_preprocessed.nii.gz ${aderivdir}/${anatprefix}_*_echoavg_${anatsuffix}2vesselref.nii.gz
+3dMean -prefix ${aderivdir}/00.${anatprefix}_${anatsuffix}_imgavg_preprocessed.nii.gz ${aderivdir}/${anatprefix}_*_echoavg_${anatsuffix}2vesselref.nii.gz
 3dMean -prefix ${aderivdir}/00.${anatprefix}_${anatsuffix}_optcom_preprocessed.nii.gz ${aderivdir}/${anatprefix}_*_optcom_${anatsuffix}2vesselref.nii.gz
 3dMean -prefix ${aderivdir}/00.${anatprefix}_${anatsuffix}_t2star_preprocessed.nii.gz ${aderivdir}/${anatprefix}_*_t2star_${anatsuffix}2vesselref.nii.gz
 
 echo ""
 echo ""
 echo "************************************"
-echo "***    Brain extract 00.${anatprefix}_${anatsuffix}_esavgd_preprocessed"
+echo "***    Brain extract 00.${anatprefix}_${anatsuffix}_imgavg_preprocessed"
 echo "************************************"
 echo ""
 echo ""
 
-# Brain extraction
-bet ${aderivdir}/00.${anatprefix}_${anatsuffix}_esavgd_preprocessed.nii.gz ${tmp}/anat_brain.nii.gz -R -f 0.5 -g 0 -n -m
-mv ${tmp}/anat_brain_mask.nii.gz ${aderivdir}/00.${anatprefix}_${anatsuffix}_mask
+${scriptdir}/blocks/brainmask.sh -nii ${aderivdir}/00.${anatprefix}_${anatsuffix}_imgavg_preprocessed.nii.gz -method bet -tmp ${tmp} -nobrain
+mv ${aderivdir}/00.${anatprefix}_${anatsuffix}_imgavg_preprocessed_brain_mask.nii.gz ${aderivdir}/00.${anatprefix}_${anatsuffix}_brain_mask.nii.gz
 
 cd ${cwd}
 
-
 # Final output of the preprocessing:
-# ${aderivdir}/00.${anatprefix}_${anatsuffix}_esavgd_preprocessed.nii.gz
+# ${aderivdir}/00.${anatprefix}_${anatsuffix}_imgavg_preprocessed.nii.gz
 # ${aderivdir}/00.${anatprefix}_${anatsuffix}_optcom_preprocessed.nii.gz
 # ${aderivdir}/00.${anatprefix}_${anatsuffix}_t2star_preprocessed.nii.gz
 # ${aderivdir}/00.${anatprefix}_${anatsuffix}_mask.nii.gz
