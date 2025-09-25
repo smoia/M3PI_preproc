@@ -9,6 +9,7 @@ ANTS_VER=2.5.4
 C3D_VER=1.0.0
 FSL_VER=6.0.7.6
 MRTRIX_VER=3.0.7
+FS_VER=8.1.0
 
 %environment
 # export templateloc=/usr/share/afni/atlases
@@ -17,9 +18,15 @@ export AFNI_PLUGINPATH="$AFNIPATH"
 export templateloc=/usr/share/afni/atlases
 export AFNI_AUTOGZIP=YES
 export AFNI_COMPRESSOR=GZIP
+
+export R_LIBS="/opt/R/{{ R_VER }}/bin/R"
+
 export ANTSPATH="/opt/ants-{{ ANTS_VER }}/bin"
 export ANTSSCRIPTS="/opt/ants-{{ ANTS_VER }}/Scripts"
+export LD_LIBRARY_PATH="/opt/ants-{{ ANTS_VER }}/lib:$LD_LIBRARY_PATH"
+
 export C3DPATH="/opt/convert3d-{{ C3D_VER }}"
+
 export FSLDIR="/opt/fsl-{{ FSL_VER }}"
 source ${FSLDIR}/etc/fslconf/fsl.sh
 export FSLOUTPUTTYPE="NIFTI_GZ"
@@ -30,16 +37,16 @@ export FSLLOCKDIR=""
 export FSLMACHINELIST=""
 export FSLREMOTECALL=""
 export FSLGECUDAQ="cuda.q"
+
 export MRTRIXPATH="/opt/mrtrix3-{{ MRTRIX_VER }}/bin"
+
 export DEBIAN_FRONTEND=noninteractive
 export TZ=Europe/Brussels
-export R_LIBS="/opt/R/{{ R_VER }}/bin/R"
-export LD_LIBRARY_PATH="/opt/ants-{{ ANTS_VER }}/lib:$LD_LIBRARY_PATH"
+
 export PREPROCPATH="/opt/preprocessing"
 export PATH="/usr/bin:$PATH:$AFNIPATH:$ANTSPATH:$ANTSSCRIPTS:$C3DPATH/bin:$PREPROCPATH:$PREPROCPATH/00.pipelines:$FSLDIR/bin"
 
 %post
-
 # Set install variables, create tmp folder
 export TMPDIR="/tmp/general_preproc_build_$( date -u +"%F_%H-%M-%S" )"
 [[ -d ${TMPDIR} ]] && rm -rf ${TMPDIR}
