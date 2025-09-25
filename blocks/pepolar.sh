@@ -12,7 +12,7 @@ blipup=none
 blipdown=none
 applytopup=yes
 workdir=/data/derivatives/vessels
-modality=func
+datatype=func
 acqparams=none
 tmp=.
 debug=no
@@ -27,12 +27,12 @@ do
 	case "$1" in
 		-nii)	nii=$2;shift;;		# Nifti file to apply topup to
 
-		-pepolardir)	pepolardir=$2;shift;;	# Directory containing PEPolar files from a previous run
-		-blipup)		blipup=$2;shift;;		# File with same PE as nii for PEPolar estimation
-		-blipdown)		blipdown=$2;shift;;		# File with opposite PE as nii for PEPolar estimation
-		-estimateonly)	applytopup=no;;			# Estimate topup only, don't apply it to the input
+		-pepolardir)	pepolardir=$2;shift;;	# Directory containing PEPolar files from a previous run.
+		-blipup)		blipup=$2;shift;;		# File with same PE as nii for PEPolar estimation.
+		-blipdown)		blipdown=$2;shift;;		# File with opposite PE as nii for PEPolar estimation.
+		-estimateonly)	applytopup=no;;			# Estimate topup only, don't apply it to the input.
 		-workdir)		workdir=$2;shift;;		# Directory of nifti derivatives (derivatives root).
-		-modality)		modality=$2;shift;;		# Directory of nifti derivatives (derivatives root).
+		-datatype)		datatype=$2;shift;;		# BIDS datatype of the nifti file.
 		-acqparams)		acqparams=$2;shift;;	# File with acquisition parameters for topup. If none, program creates it.
 
 		-tmp)		tmp=$2;shift;;				# Folder for temporary files. If not in debug mode, it'll be deleted at the end.
@@ -47,14 +47,14 @@ done
 
 # Check input
 checkreqvar nii
-checkoptvar pepolardir blipup blipdown estimateonly workdir modality tmp debug
+checkoptvar pepolardir blipup blipdown estimateonly workdir datatype tmp debug
 
 [[ ${debug} == "yes" ]] && set -x
 
 ### Remove nifti suffix
 for var in nii blipup blipdown
 do
-	eval "${var}=$( removeniisfx ${var} )"
+	eval "${var}=$( removeniisfx ${!var} )"
 done
 
 ### Cath errors and exit on them
@@ -68,9 +68,11 @@ cwd=$(pwd)
 niiname=$( basename ${nii} )
 
 [[ "$niiname" =~ ^(sub-[^_]+)_(ses-[^_]+) ]] && \
-	nderivdir=${workdir}/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}/${modality}
+	nderivdir=${workdir}/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}/${datatype} && \
+	origtmp=${tmp} && tmp=${tmp}/${BASH_REMATCH[1]}_${BASH_REMATCH[2]}_topup
 
 if_missing_do stop ${nderivdir}
+replace_and mkdir ${tmp}
 
 ## 01. PEpolar
 # If there isn't an estimated field, make it.
@@ -90,7 +92,7 @@ then
 	if [[ ${acqparams} == "none" ]]
 	then
 		echo "Extracting acquisition parameters via MRtrix3"
-		mrconvert ${blipup}.nii.gz ${tmp}/delete.nii.gz -export_pe_topup ${tmp}/blipup_topup -json_import ${blipup}.json
+		mrconvert ${blipup}.nii.gz ${tmp}/delete.nii.gz -export_pe_topup ${tmp}/blipup_topup -json_import ${blipup}.json -force
 		mrconvert ${blipdown}.nii.gz ${tmp}/delete.nii.gz -export_pe_topup ${tmp}/blipdown_topup -json_import ${blipdown}.json -force
 		cat ${tmp}/blipup_topup ${tmp}/blipdown_topup > ${pepolardir}/acqparam.txt
 	fi
@@ -108,7 +110,7 @@ then
 	exit 1
 
 # If no image was given, and there _is_ an estimated file, fake it.
-elif [[ ${pepolardir} == "none" && -d ${nderivdir}/${niiname}_topup && -e ${nderivdir}/${niiname}_topup/outtp.nii.gz ]]
+elif [[ ${pepolardir} == "none" && -d ${nderivdir}/${niiname}_topup && -e ${nderivdir}/${niiname}_topup/outtp_fieldcoef.nii.gz ]]
 then
 	echo ""
 	echo "WARNING: PEPolar folder was not specified, blip images were not specified, but there is a valid folder in ${nderivdir}/${niiname}_topup."
@@ -128,7 +130,7 @@ then
 		if_missing_do stop ${pepolardir}
 
 		# If a folder was given but it's not a valid folder, stop it.
-		if [[ ! -e ${pepolardir}/outtp.nii.gz || ! -e ${pepolardir}/acqparam.txt ]]
+		if [[ ! -e ${pepolardir}/outtp_fieldcoef.nii.gz || ! -e ${pepolardir}/acqparam.txt ]]
 		then
 			checkoptvar pepolardir
 			echo "Provided folder ${pepolardir} does not contain valid topup files"
@@ -137,11 +139,29 @@ then
 	fi
 
 	echo "Applying PEPOLAR map on ${nii}"
-	applytopup --imain=${nii} --datain= ${pepolardir}/acqparam.txt --inindex=1 \
-	--topup=${pepolardir}/outtp --out=${tmp}/${niiname}_tpp --verbose --method=jac
+	applytopup --imain=${nii} --datain=${pepolardir}/acqparam.txt --inindex=1 \
+	--topup=${pepolardir}/outtp --out=${origtmp}/${niiname}_tpp --verbose --method=jac
 
 fi
 
 cd ${cwd}
 
 if [[ ${debug} == "yes" ]]; then set +x; else rm -rf ${tmp}; fi
+
+
+
+# """
+# Copyright 2022, Stefano Moia.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# """
