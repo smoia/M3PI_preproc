@@ -123,9 +123,9 @@ if_missing_do mkdir ${rderivdir}
 
 for dwifile in ${dwiprefix}_*_${dwisuffix}.nii.gz
 do
-	# Not sure we need to skip the fake b0
-	[[ ${dwifile} == *"acq-7db0"* ]] &&continue
 	dwifile=$( basename $( removeniisfx ${dwifile} ) )
+	# Not sure we need to skip the fake b0
+	[[ ${dwifile} == *"acq-7db0"* ]] && continue
 
 	echo ""
 	echo ""
@@ -135,28 +135,28 @@ do
 	echo ""
 	echo ""
 
-	mrconvert -fslgrad ${dwifile}.bvec ${dwifile}.bval  -json_import ${dwifile}.json -strides 0,0,0,1 ${dwifile}.nii.gz ${tmp}/${dwifile}.mif
+	mrconvert -fslgrad ${dwifile}.bvec ${dwifile}.bval  -json_import ${dwifile}.json -strides 0,0,0,1 ${dwifile}.nii.gz ${tmp}/${dwifile}.mif -force
 
 	if [[ ${degibbs} == "yes" ]]
 	then
 		# MRtrix3 suggests doing degibbs after dwidenoise though
-		mrdegibbs ${tmp}/${dwifile}.mif ${tmp}/${dwifile}_degibbs.mif
+		mrdegibbs ${tmp}/${dwifile}.mif ${tmp}/${dwifile}_degibbs.mif -force
 		dwisuffix=${dwisuffix}_degibbs
 	fi
 done
 
-dwicat ${tmp}/${dwiprefix}_*_${dwisuffix}.mif ${tmp}/${dwiprefix}_concat.mif
+dwicat -scratch ${tmp} ${tmp}/${dwiprefix}_*_${dwisuffix}.mif ${tmp}/${dwiprefix}_concat.mif
 
 # Doing denoise on merged volumes and respitting out divided nifti files
 # See https://community.mrtrix.org/t/dwidenoise-correct-use/586/4
 # And https://community.mrtrix.org/t/combining-two-dwi-images-with-b800-and-b2000/7115
 # However see https://qsiprep.readthedocs.io/en/stable/preprocessing.html#denoising-and-merging-images
 mkdir -p ${dderivdir}/${dwiprefix}_dwidenoise
-dwidenoise ${tmp}/${dwiprefix}_concat.mif ${tmp}/${dwiprefix}_denoised.mif -noise ${dderivdir}/${dwiprefix}_dwidenoise/noise.nii.gz
+dwidenoise ${tmp}/${dwiprefix}_concat.mif ${tmp}/${dwiprefix}_denoised.mif -noise ${dderivdir}/${dwiprefix}_dwidenoise/noise.nii.gz -force
 mrcalc ${tmp}/${dwiprefix}_concat.mif ${tmp}/${dwiprefix}_denoised.mif -subtract ${dderivdir}/${dwiprefix}_dwidenoise/residulas.nii.gz
 
 mrconvert -export_grad_fsl ${dderivdir}/${dwiprefix}_concat.bvec ${dderivdir}/${dwiprefix}_concat.bval -strides -1,+2,+3,+4 \
-		  ${tmp}/${dwiprefix}_denoised.mif ${tmp}/${dwiprefix}_denoised.nii.gz
+		  ${tmp}/${dwiprefix}_denoised.mif ${tmp}/${dwiprefix}_denoised.nii.gz -force
 
 echo ""
 echo ""
@@ -167,38 +167,48 @@ echo ""
 echo ""
 
 # Estimate first giving a name for folder purposes
-${scriptdir}/blocks/pepolar.sh -nii ${dwiprefix}_dwi_concat -blipup ${ddir}/${dwiprefix}_acq-7db0_sbref -blipdown ${ddir}/${dwiprefix}_acq-40db1k_sbref \
-							   -workdir ${workdir}/derivatives/vessels -estimateonly -modality dwi -debug ${debug} -tmp ${tmp}
+${scriptdir}/blocks/pepolar.sh -nii ${dwiprefix}_dwi_concat -blipdown ${ddir}/${dwiprefix}_acq-7db0_sbref -blipup ${ddir}/${dwiprefix}_acq-40db1k_sbref \
+							   -workdir ${workdir}/derivatives/vessels -estimateonly -modality dwi -tmp ${tmp}
 
 pepolardir=${dderivdir}/${dwiprefix}_dwi_concat_topup
 # Apply on blipup
-${scriptdir}/blocks/pepolar.sh -nii ${ddir}/${dwiprefix}_acq-7db0_sbref -pepolardir ${pepolardir} \
-							   -workdir ${workdir}/derivatives/vessels -modality dwi -debug ${debug} -tmp ${tmp}
+${scriptdir}/blocks/pepolar.sh -nii ${ddir}/${dwiprefix}_acq-40db1k_sbref -pepolardir ${pepolardir} \
+							   -workdir ${workdir}/derivatives/vessels -modality dwi -tmp ${tmp}
 
 # Use corrected blipup to make a brain mask
-bet ${tmp}/${dwiprefix}_acq-7db0_sbref_tpp ${tmp}/${dwiprefix}_dwi_brain -R -f 0.5 -g 0 -n -m
-mv ${tmp}/${dwiprefix}_dwi_brain_mask.nii.gz ${dderivdir}/.
-
+# For some reason I don't want to think about, this mask can be awful. Instead I'll do a better one mixing a few options together.
+${scriptdir}/blocks/brainmask.sh -nii ${tmp}/${dwiprefix}_acq-40db1k_sbref_tpp -method "bet 3dss" -tmp ${tmp} -nobrain
 # Also create a combined mask from distorted files to use for eddy
-fslmaths ${tmp}/${dwiprefix}_denoised -Tmean ${tmp}/avg_dwi
-bet ${tmp}/avg_dwi ${tmp}/avg_dwi_brain -R -f 0.5 -g 0 -n -m
+${scriptdir}/blocks/brainmask.sh -nii ${tmp}/${dwiprefix}_denoised -method avgbet -tmp ${tmp} -nobrain
+
+fslmaths ${tmp}/${dwiprefix}_acq-40db1k_sbref_tpp_brain_mask -add ${tmp}/${dwiprefix}_denoised_brain_mask -bin ${dderivdir}/${dwiprefix}_dwi_brain_mask
+fslmaths ${tmp}/${dwiprefix}_acq-40db1k_sbref_tpp -mas ${dderivdir}/${dwiprefix}_dwi_brain_mask ${dderivdir}/${dwiprefix}_dwi_brain
 
 # Prepare index file for eddy
+eddyindex=""
+for i in $( seq 1 $( fslval ${tmp}/${dwiprefix}_denoised dim4 ) ); do eddyindex="${eddyindex} 1"; done
+echo ${eddyindex} > ${tmp}/eddyindex
 
-replace_and touch ${tmp}/eddyindex
-for i in $( seq 1 $( fslval ${tmp}/${dwiprefix}_denoised dim4 ) ); do echo " 1" >> ${tmp}/eddyindex; done
-
-# Run eddy (although very uncertain about HOW)
+# Run eddy
 eddy --imain=${tmp}/${dwiprefix}_denoised.nii.gz --mask=${dderivdir}/${dwiprefix}_dwi_brain_mask \
 	 --acqp=${pepolardir}/acqparam.txt --topup=${pepolardir}/outtp --index=${tmp}/eddyindex \
 	 --bvecs=${dderivdir}/${dwiprefix}_concat.bvec --bvals=${dderivdir}/${dwiprefix}_concat.bval \
 	 --json=${dwifile}.json --nthr=${nthreads} \
 	 --out=${tmp}/${dwiprefix}_eddied
 
+mv ${tmp}/${dwiprefix}_eddied.eddy.json ${dderivdir}/00.${dwiprefix}_dwi_preprocessed_eddy_parameters.json
+mv ${tmp}/${dwiprefix}_eddied.eddy_shell_indicies.json ${dderivdir}/00.${dwiprefix}_dwi_preprocessed_shell_indexes.json
+mv ${tmp}/${dwiprefix}_eddied.eddy_rotated_bvecs ${dderivdir}/00.${dwiprefix}_dwi_preprocessed.bvecs
+
+
 # Bias field correction (why only now?) with ants N4
 # 02.2. Bias Correction
 # See dwibiascorrect
-N4BiasFieldCorrection -d 3 -i ${tmp}/${dwiprefix}_eddied.nii.gz -o ${dderivdir}/00.${dwiprefix}_dwi_preprocessed.nii.gz
+
+# echo "Performing BFC on ${anat}"
+# ImageMath 4 ${tmp}/${dwiprefix}_trunc.nii.gz TruncateImageIntensity ${tmp}/${dwiprefix}_eddied.nii.gz 0.02 0.98 256
+
+N4BiasFieldCorrection -d 4 -i ${tmp}/${dwiprefix}_trunc.nii.gz -o ${dderivdir}/00.${dwiprefix}_dwi_preprocessed.nii.gz
 
 # post proc
 
@@ -222,3 +232,21 @@ echo "************************************"
 cd ${cwd}
 
 if [[ ${debug} == "yes" ]]; then set +x; else rm -rf ${tmp}; fi
+
+
+
+# """
+# Copyright 2022, Stefano Moia.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# """
