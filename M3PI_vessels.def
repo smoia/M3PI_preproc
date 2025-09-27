@@ -184,7 +184,7 @@ curl -fsSL https://sourceforge.net/projects/c3d/files/c3d/{{ C3D_VER }}/c3d-{{ C
 # Install FSL
 mkdir -p ${TMPDIR}/fsl
 cd ${TMPDIR}/fsl || exit 1
-curl -fL https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py --output ./fslinstaller.py
+curl -fL https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py --output ./fslinstaller.py
 chmod +x fslinstaller.py
 python3 fslinstaller.py -d /opt/fsl-{{ FSL_VER }} -V {{ FSL_VER }}
 # echo "Installing FSL conda environment ..."
