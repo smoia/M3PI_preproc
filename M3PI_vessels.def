@@ -195,7 +195,7 @@ rm -rf ${TMPDIR}/fsl
 # Install MRTrix3
 mkdir -p ${TMPDIR}/mrtrix
 git clone -b {{ MRTRIX_VER }} --depth=1 https://github.com/MRtrix3/mrtrix3.git ${TMPDIR}/mrtrix
-cd ${TMPDIR}/mrtrix/build || exit 1
+cd ${TMPDIR}/mrtrix || exit 1
 ./configure
 ./build
 mkdir -p /opt/mrtrix3-{{ MRTRIX_VER }}
