@@ -29,7 +29,7 @@ displayhelp() {
 			# Match only lines that look like a case flag
 			if ($0 ~ /^[ \t]*-/) {
 				# Capture: flag, code between ) and ;;, and optional comment
-				match($0, /^[ \t]*(-[^) \t]*)[ \t]*\)[ \t]*([^#]*?);;[ \t]*(#(.*))?$/, linepart)
+				match($0, /^[ \t]*(-[^) \t]*)[ \t]*\)[ \t]*([^#]*);;[ \t]*(#(.*))?$/, linepart)
 				flag = linepart[1]
 				code = linepart[2]
 				desc = linepart[4]
@@ -40,8 +40,8 @@ displayhelp() {
 				# If no comment, try to use the variable being set as description
 				if (desc == "" && code != "") {
 					# Extract variable name from something like "varname=$2"
-					if (match(code, /^([A-Za-z_][A-Za-z0-9_]*)=/, varname)) {
-						desc = "(sets " varname[1] ")"
+					if (match(code, /^[A-Za-z_][A-Za-z0-9_]*/)) {
+						desc = "(sets " substr(code, RSTART, RLENGTH) ")"
 					}
 				}
 				if (desc == "") desc = "(no description)"
