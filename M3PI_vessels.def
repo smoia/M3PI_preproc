@@ -200,7 +200,7 @@ cd ${TMPDIR}/mrtrix || exit 1
 ./configure
 ./build
 mkdir -p /opt/mrtrix3-{{ MRTRIX_VER }}
-mv bin icons lib LICENSE.txt matlab share /opt/mrtrix3-{{ MRTRIX_VER }}/.
+mv bin icons lib LICENCE.txt matlab share /opt/mrtrix3-{{ MRTRIX_VER }}/.
 cd ${TMPDIR} || exit 1
 rm -rf ${TMPDIR}/mrtrix
 
