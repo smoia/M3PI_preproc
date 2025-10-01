@@ -28,18 +28,29 @@ displayhelp() {
 
 			# Match only lines that look like a case flag
 			if ($0 ~ /^[ \t]*-/) {
-				# Capture: flag, code between ) and ;;, and optional comment
-				match($0, /^[ \t]*(-[^) \t]*)[ \t]*\)[ \t]*([^#]*);;[ \t]*(#(.*))?$/, linepart)
-				flag = linepart[1]
-				code = linepart[2]
-				desc = linepart[4]
+				flag = ""; code = ""; desc = ""
 
-				gsub(/^[ \t]+|[ \t]+$/, "", code)
-				gsub(/^[ \t]+|[ \t]+$/, "", desc)
+				# Extract the flag (first token before ")")
+				if (match($0, /^[ \t]*-[^ \t)]*/)) {
+					flag = substr($0, RSTART, RLENGTH)
+				}
+
+				# Extract code (between ")" and ";;", ignoring comments)
+				if (match($0, /\)[ \t]*([^#]*);;/)) {
+					tmp = substr($0, RSTART+1, RLENGTH-3)  # skip ")" and ";;"
+					gsub(/^[ \t]+|[ \t]+$/, "", tmp)
+					code = tmp
+				}
+
+				# Extract comment (after "#", if any)
+				if (match($0, /#[ \t]*(.*)$/)) {
+					tmp = substr($0, RSTART+1)
+					gsub(/^[ \t]+|[ \t]+$/, "", tmp)
+					desc = tmp
+				}
 
 				# If no comment, try to use the variable being set as description
 				if (desc == "" && code != "") {
-					# Extract variable name from something like "varname=$2"
 					if (match(code, /^[A-Za-z_][A-Za-z0-9_]*/)) {
 						desc = "(sets " substr(code, RSTART, RLENGTH) ")"
 					}
@@ -70,6 +81,7 @@ displayhelp() {
 			}
 		}
 	' "${script_file}"
+
 
 	# Only show presets if optional flags exist
 	if awk '
