@@ -232,7 +232,7 @@ do
 		(( x*=2 ))
 		(( y*=2 ))
 		(( z*=2 ))
-		ResampleImage 3 ${imgfile}.nii.gz ${tmp}/${anatfile}_${imgtype}_upsampled_${anatsuffix}.nii.gz ${x}x${y}x${z} 1 0
+		ResampleImage 3 ${imgfile} ${tmp}/${anatfile}_${imgtype}_upsampled_${anatsuffix}.nii.gz ${x}x${y}x${z} 1 0
 	done
 
 	# realign to vesselref (first file in input)
