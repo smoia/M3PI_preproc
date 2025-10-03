@@ -105,7 +105,7 @@ echo ""
 adir=${workdir}/sub-${sub}/ses-${ses}/anat
 aderivdir=${workdir}/derivatives/vessels/sub-${sub}/ses-${ses}/anat
 rderivdir=${workdir}/derivatives/vessels/sub-${sub}/ses-${ses}/reg
-regref=${workdir}/derivatives/vessels/sub-${sub}/ses-17T/reg/sub-${sub}_vesselref.nii.gz
+regref=${workdir}/derivatives/vessels/sub-${sub}/ses-${ses}/reg/sub-${sub}_vesselref.nii.gz
 anatprefix=sub-${sub}_ses-${ses}
 tmp=${tmp}/sub-${sub}_ses-${ses}_vesselsbfc
 
