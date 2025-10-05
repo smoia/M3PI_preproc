@@ -58,9 +58,9 @@ cd ${TMPDIR} || exit 1
 rm -rf ${TMPDIR}/miniconda
 
 # Install VesselBoost
-git clone --single-branch --branch master https://github.com/KMarshallX/VesselBoost.git /opt/VesselBoost
+git clone --single-branch --branch stable_ver_1_0_0_hpc https://github.com/KMarshallX/VesselBoost.git /opt/VesselBoost
 cd /opt/VesselBoost
-git checkout 93f0e0548a05d1b5aed011d3c70c15a493f24fb5
+# git checkout 93f0e0548a05d1b5aed011d3c70c15a493f24fb5
 
 . /opt/miniconda3/bin/activate
 conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
