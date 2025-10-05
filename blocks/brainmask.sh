@@ -96,8 +96,8 @@ do
 			mask=${tmp}/${niiname}_3dam_brain_mask;;
 		synthstrip|fsss)
 			echo "Extracting brain with Fresurfer's SynthStrip"
-			echo "mri_synthstrip -i ${nii}.nii.gz -o ${tmp}/${niiname}_brain.nii.gz -m ${tmp}/${niiname}_fsss_brain_mask.nii.gz ${argsfsss}"
-			eval "mri_synthstrip -i ${nii}.nii.gz -o ${tmp}/${niiname}_brain.nii.gz -m ${tmp}/${niiname}_fsss_brain_mask.nii.gz ${argsfsss}"
+			echo "mri_synthstrip -i ${nii}.nii.gz -o ${tmp}/${niiname}_fsss_brain.nii.gz -m ${tmp}/${niiname}_fsss_brain_mask.nii.gz ${argsfsss}"
+			eval "mri_synthstrip -i ${nii}.nii.gz -o ${tmp}/${niiname}_fsss_brain.nii.gz -m ${tmp}/${niiname}_fsss_brain_mask.nii.gz ${argsfsss}"
 			mask=${tmp}/${niiname}_fsss_brain_mask;;
 
 		*)	echo "Option ${m} not supported yet." && exit 1;;
@@ -122,7 +122,20 @@ else
 	mv ${mask}.nii.gz ${ndir}/${niiname}_brain_mask.nii.gz
 fi
 
-[[ ${exportbrain} == "yes" ]] && fslmaths ${nii} -mas ${ndir}/${niiname}_brain_mask.nii.gz ${ndir}/${niiname}_brain.nii.gz
+if ! command -v fslmaths &>/dev/null
+then
+	if [[ ${#method[@]} -eq 1 ]] && [[ "${method[0]}" == "fsss" || "${method[0]}" == "synthstrip" ]]
+	then
+		mv ${mask%_mask}.nii.gz ${ndir}/${niiname}_brain.nii.gz
+	else
+			3dcalc -a ${nii}.nii.gz -b ${ndir}/${niiname}_brain_mask.nii.gz -expr "a*astep(b,0)" \
+				   -prefix ${ndir}/${niiname}_brain.nii.gz -overwrite
+	fi
+else
+	fslmaths ${nii} -mas ${ndir}/${niiname}_brain_mask.nii.gz ${ndir}/${niiname}_brain.nii.gz
+fi
+
+
 
 cd ${cwd}
 
