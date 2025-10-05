@@ -37,7 +37,7 @@ done
 
 # Check input
 checkreqvar anat
-checkoptvar TEs tmp debug
+checkoptvar tmp debug
 
 [[ ${debug} == "yes" ]] && set -x
 
@@ -66,7 +66,7 @@ if_missing_do stop ${workdir}
 if_missing_do mkdir ${workdir}/logs
 
 # Preparing log folder and log file, removing the previous one
-logfile=${workdir}/logs/${anatname}_log
+logfile=${workdir}/logs/${anatname}_vesselseg_log
 replace_and touch ${logfile}
 
 echo "************************************" >> ${logfile}
@@ -82,7 +82,7 @@ echo ${printcall}
 echo ""
 echo "PATH is set to $PATH"
 checkreqvar anat
-checkoptvar TEs tmp debug
+checkoptvar tmp debug
 
 echo "************************************"
 echo "************************************"
@@ -126,13 +126,17 @@ ImageMath 3 ${tmp}/${anatprefix}_${anatsuffix}_nrmd.nii.gz Normalize ${anat}.nii
 
 # Secondary, more robust Bias Field Correction
 N4BiasFieldCorrection -d 3 -i ${tmp}/${anatprefix}_${anatsuffix}_nrmd.nii.gz \
-                        -o ${tmp}/${anatprefix}_${anatsuffix}_bfcvb.nii.gz \
-                        -b [10,3] -c [100x100x100x100,0.0] -v 1
+					  -o ${tmp}/${anatprefix}_${anatsuffix}_bfcvb.nii.gz \
+					  -b [10,3] -c [100x100x100x100,0.0] -v 1
 
 # Brain extraction with freesurfer
+
+source /opt/miniconda3/bin/activate
+conda activate vessel_boost
+
 ${scriptdir}/blocks/brainmask.sh -nii ${tmp}/${anatprefix}_${anatsuffix}_bfcvb.nii.gz -method fsss -tmp ${tmp}
 mv ${tmp}/${anatprefix}_${anatsuffix}_bfcvb_brain_mask.nii.gz ${workdir}/segmentations/masks/${anatprefix}_brain_mask_fsss.nii.gz
-mv ${tmp}/${anatprefix}_${anatsuffix}_bfcvb_brain.nii.gz mv ${tmp}/deskulled/${anatprefix}_${anatsuffix}_bfcvb_brain
+mv ${tmp}/${anatprefix}_${anatsuffix}_bfcvb_brain.nii.gz ${tmp}/deskulled/${anatprefix}_${anatsuffix}_bfcvb_brain.nii.gz
 
 echo ""
 echo ""
@@ -142,10 +146,10 @@ echo "************************************"
 echo ""
 echo ""
 
-conda activate vessel_boost
-
 /opt/VesselBoost/prediction.py --ds_path ${tmp}/deskulled --out_path ${workdir}/segmentations/prediction \
 							   --pretrained /opt/VesselBoost/saved_models/t2s_mod_ep1k2_0728 --prep_mode 4
+
+# /opt/VesselBoost/prediction.py --image_path ${tmp}/deskulled --preprocessed_path ${tmp}/preprocessed --output_path ${workdir}/segmentations/prediction --pretrained /opt/VesselBoost/saved_models/t2s_mod_ep1k2_0728 --prep_mode 4
 
 cd ${cwd}
 
