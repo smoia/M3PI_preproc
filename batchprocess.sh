@@ -17,7 +17,7 @@ do
 screen_name="vesselprep_${sub}"
 
 screen -dmS "$screen_name" \
--L -Logfile /Neurodata/Logs/${screen_name}.log \
+-L -Logfile $DATA/Logs/${screen_name}.log \
 bash -c "
 apptainer exec -e --no-home -B $M3PI:/data -B $GITLAB/M3PI_preproc:/scripts -B /tmp:/tmp $GITLAB/M3PI_preproc/M3PI_vessels.sif \
 /scripts/3dMEEPI_preproc.sh -anat /data/sub-${sub}/ses-7T/anat/sub-${sub}_ses-7T_acq-normRO_run-1_echo-1_part-mag_T2starw.nii.gz;
