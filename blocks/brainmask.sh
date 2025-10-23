@@ -96,8 +96,10 @@ do
 			mask=${tmp}/${niiname}_3dam_brain_mask;;
 		synthstrip|fsss)
 			echo "Extracting brain with Fresurfer's SynthStrip"
+			[[ -d ${FREESURFER_HOME}/ssenv ]] && source ${FREESURFER_HOME}/ssenv/bin/activate
 			echo "mri_synthstrip -i ${nii}.nii.gz -o ${tmp}/${niiname}_fsss_brain.nii.gz -m ${tmp}/${niiname}_fsss_brain_mask.nii.gz ${argsfsss}"
 			eval "mri_synthstrip -i ${nii}.nii.gz -o ${tmp}/${niiname}_fsss_brain.nii.gz -m ${tmp}/${niiname}_fsss_brain_mask.nii.gz ${argsfsss}"
+			[[ -d ${FREESURFER_HOME}/ssenv ]] && deactivate
 			mask=${tmp}/${niiname}_fsss_brain_mask;;
 
 		*)	echo "Option ${m} not supported yet." && exit 1;;
