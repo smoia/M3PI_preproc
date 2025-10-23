@@ -22,7 +22,7 @@ printcall="${printline} $*"
 while [ ! -z "$1" ]
 do
 	case "$1" in
-		-anat)		anat=$2;shift;;		# Any 3dMEEPI of an echo/acq/run series, the others will be found automatically.
+		-anat)		anat=$2;shift;;		# Any 3dMEEPI of an echo/acq/run series, the others will be found automatically. Better to run on normRO
 
 		-TEs)		TEs="$2";shift;;	# Echo Times of the expected input. Must be specified within " "
 		-tmp)		tmp=$2;shift;;		# Folder for temporary files. If not in debug mode, it'll be deleted at the end.
@@ -196,6 +196,7 @@ for i in "${!anatfiles[@]}"
 do
 	anatfile=${anatfiles[i]}
 
+
 	echo ""
 	echo ""
 	echo "************************************"
@@ -219,7 +220,6 @@ do
 	echo "--------------"
 	echo "Python: $( which python ) $( which python3 )"
 
-
 	# T2* mapping and optimal combination
 	t2smap -d ${tmp}/${anatfile}_echo-?_${anatsuffix}_${anatpipesfx}.nii.gz --masktype none -e ${TEs} --out-dir ${tmp}/${anatfile}_TED
 	fslmaths ${tmp}/${anatfile}_TED/desc-optcom_bold.nii.gz ${tmp}/${anatfile}_optcom_${anatsuffix}.nii.gz -odt float
@@ -238,7 +238,6 @@ do
 		mv ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${tmp}/${anatfile}_echoavg_${anatsuffix}_undegibbed.nii.gz
 		mv ${tmp}/${anatfile}_echoavg_${anatsuffix}_degibbs.nii.gz ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz
 	fi
-
 
 	for imgtype in echoavg optcom t2star
 	do
@@ -264,18 +263,25 @@ do
 	then
 		if_missing_do copy ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${rderivdir}/sub-${sub}_vesselref_downsampled.nii.gz
 		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix}.nii.gz ${regref}
-		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_echoavg_${anatsuffix}2vesselref.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_optcom_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_optcom_${anatsuffix}2vesselref.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_t2star_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_t2star_${anatsuffix}2vesselref.nii.gz
+		for metric in echoavg optcom t2star
+		do
+			if_missing_do copy ${tmp}/${anatfile}_${metric}_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_${metric}_${anatsuffix}2vesselref.nii.gz
+		done
 	else
-		flirt -in ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix} -ref ${regref} -cost normcorr -searchcost normcorr -dof 6 \
-		-omat ${rderivdir}/${anatfile}2vesselref_fsl.mat -o ${aderivdir}/${anatfile}_echoavg_${anatsuffix}2vesselref.nii.gz
-		flirt -in ${tmp}/${anatfile}_optcom_upsampled_${anatsuffix} -ref ${regref} \
-		-init ${rderivdir}/${anatfile}2vesselref_fsl.mat -applyxfm -o ${aderivdir}/${anatfile}_optcom_${anatsuffix}2vesselref.nii.gz
-		flirt -in ${tmp}/${anatfile}_t2star_upsampled_${anatsuffix} -ref ${regref} \
-		-init ${rderivdir}/${anatfile}2vesselref_fsl.mat -applyxfm -o ${aderivdir}/${anatfile}_t2star_${anatsuffix}2vesselref.nii.gz
+		for metric in echoavg optcom t2star
+		do
+			if grep -Fxq ${anatfile} ${scriptdir}/3dmeepi_discardlist
+			then
+				echo "  !!!  Skipping ${anatfile} ${metric} due to bad quality !!!"
+				mv ${tmp}/${anatfile}_${metric}_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_${metric}_${anatsuffix}_badquality.nii.gz
+			else
+				flirt -in ${tmp}/${anatfile}_${metric}_upsampled_${anatsuffix} -ref ${regref} -cost normcorr -searchcost normcorr -dof 6 \
+				-omat ${rderivdir}/${anatfile}2vesselref_fsl.mat -o ${aderivdir}/${anatfile}_${metric}_${anatsuffix}2vesselref.nii.gz
+			fi
+		done
 	fi
 done
+
 
 echo ""
 echo ""
