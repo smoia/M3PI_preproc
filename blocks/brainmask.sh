@@ -124,19 +124,21 @@ else
 	mv ${mask}.nii.gz ${ndir}/${niiname}_brain_mask.nii.gz
 fi
 
-if ! command -v fslmaths &>/dev/null
+if [[ ${exportbrain} == "yes" ]]
 then
-	if [[ ${#method[@]} -eq 1 ]] && [[ "${method[0]}" == "fsss" || "${method[0]}" == "synthstrip" ]]
+	if ! command -v fslmaths &>/dev/null
 	then
-		mv ${mask%_mask}.nii.gz ${ndir}/${niiname}_brain.nii.gz
+		if [[ ${#method[@]} -eq 1 ]] && [[ "${method[0]}" == "fsss" || "${method[0]}" == "synthstrip" ]]
+		then
+			mv ${mask%_mask}.nii.gz ${ndir}/${niiname}_brain.nii.gz
+		else
+				3dcalc -a ${nii}.nii.gz -b ${ndir}/${niiname}_brain_mask.nii.gz -expr "a*astep(b,0)" \
+					   -prefix ${ndir}/${niiname}_brain.nii.gz -overwrite
+		fi
 	else
-			3dcalc -a ${nii}.nii.gz -b ${ndir}/${niiname}_brain_mask.nii.gz -expr "a*astep(b,0)" \
-				   -prefix ${ndir}/${niiname}_brain.nii.gz -overwrite
+		fslmaths ${nii} -mas ${ndir}/${niiname}_brain_mask.nii.gz ${ndir}/${niiname}_brain.nii.gz
 	fi
-else
-	fslmaths ${nii} -mas ${ndir}/${niiname}_brain_mask.nii.gz ${ndir}/${niiname}_brain.nii.gz
 fi
-
 
 
 cd ${cwd}
