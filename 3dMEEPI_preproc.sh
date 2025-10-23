@@ -10,6 +10,8 @@ source $( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/utils.sh
 tmp=/tmp
 debug=no
 TEs="9.46 24.66 39.86"
+degibbs=no
+skip_bfc=no
 
 ### print input
 printline=$( basename -- $0 )
@@ -25,6 +27,8 @@ do
 		-TEs)		TEs="$2";shift;;	# Echo Times of the expected input. Must be specified within " "
 		-tmp)		tmp=$2;shift;;		# Folder for temporary files. If not in debug mode, it'll be deleted at the end.
 		-debug)		debug=yes;;			# Turn on debug mode.
+		-degibbs)	degibbs=yes;;		# Run DeGibbs on echoavg files.
+		-skip_bfc)	skip_bfc=yes;;		# DO NOT run N4BiasFieldCorrection on raw files.
 
 		-h)			displayhelp $0;;	# Display this help.
 		-v)			version $0;exit 0;;	# Display the version.
@@ -151,8 +155,10 @@ do
 	# 02.1. Truncate (0.01) for Bias Correction
 	echo "Performing BFC on ${anatfile}"
 	ImageMath 3 ${tmp}/${anatfile}_trunc.nii.gz TruncateImageIntensity ${tmp}/${anatfile}_ab.nii.gz 0.02 0.98 256
+	
+	anatpipesfx=trunc
 	# 02.2. Bias Correction
-	N4BiasFieldCorrection -d 3 -i ${tmp}/${anatfile}_trunc.nii.gz -o ${tmp}/${anatfile}_bfc.nii.gz
+	[[ "${skip_bfc}" == "no" ]] && N4BiasFieldCorrection -d 3 -i ${tmp}/${anatfile}_trunc.nii.gz -o ${tmp}/${anatfile}_bfc.nii.gz && anatpipesfx=bfc
 done
 
 # Prepare echoes averaging and T2* mapping
@@ -215,13 +221,24 @@ do
 
 
 	# T2* mapping and optimal combination
-	t2smap -d ${tmp}/${anatfile}_echo-?_${anatsuffix}_bfc.nii.gz --masktype none -e ${TEs} --out-dir ${tmp}/${anatfile}_TED
+	t2smap -d ${tmp}/${anatfile}_echo-?_${anatsuffix}_${anatpipesfx}.nii.gz --masktype none -e ${TEs} --out-dir ${tmp}/${anatfile}_TED
 	fslmaths ${tmp}/${anatfile}_TED/desc-optcom_bold.nii.gz ${tmp}/${anatfile}_optcom_${anatsuffix}.nii.gz -odt float
 	fslmaths ${tmp}/${anatfile}_TED/T2starmap.nii.gz ${tmp}/${anatfile}_t2star_${anatsuffix}.nii.gz -odt float
 
 	# echo average
-	# [ you can substitute this average step with your code if you prefer ]
-	3dMean -prefix ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${tmp}/${anatfile}_echo-?_${anatsuffix}_bfc.nii.gz
+	3dMean -prefix ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${tmp}/${anatfile}_echo-?_${anatsuffix}_${anatpipesfx}.nii.gz
+
+	# Option to run degibbs here
+	if [[ ${degibbs} == "yes" ]]
+	then
+		# MRtrix3 suggests doing degibbs after dwidenoise though
+		mrdegibbs ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${tmp}/${anatfile}_echoavg_${anatsuffix}_degibbs.nii.gz -force
+		fslmaths ${tmp}/${anatfile}_echoavg_${anatsuffix}_degibbs.nii.gz -sub ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz \
+				 ${tmp}/${anatfile}_echoavg_${anatsuffix}_gibbsnoise.nii.gz
+		mv ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${tmp}/${anatfile}_echoavg_${anatsuffix}_undegibbed.nii.gz
+		mv ${tmp}/${anatfile}_echoavg_${anatsuffix}_degibbs.nii.gz ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz
+	fi
+
 
 	for imgtype in echoavg optcom t2star
 	do
