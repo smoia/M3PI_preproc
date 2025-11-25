@@ -59,155 +59,19 @@ export TZ=Europe/Brussels
 apt update -qq
 apt install -y -q --no-install-recommends ca-certificates dirmngr gnupg lsb-release
 
-# Prepare repos and install dependencies
-apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C9A7585B49D51698710F3A115E25F516B04C661B
-apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 6E12762B81063D17BDDD3142F142A4D99F16EB04
-echo "deb https://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu $(lsb_release -cs) main" | tee -a /etc/apt/sources.list
-echo "deb-src https://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu $(lsb_release -cs) main" | tee -a /etc/apt/sources.list
-echo "deb https://ppa.launchpadcontent.net/c2d4u.team/c2d4u4.0+/ubuntu $(lsb_release -cs) main" | tee -a /etc/apt/sources.list
-echo "deb-src https://ppa.launchpadcontent.net/c2d4u.team/c2d4u4.0+/ubuntu $(lsb_release -cs) main" | tee -a /etc/apt/sources.list
+# Install PYTHON things, as well as git and curl.
 apt update -qq
 apt install -y -q --no-install-recommends \
-    bc \
     build-essential \
-    bzip2 \
-    cmake \
-    csvtool \
     curl \
-    dc \
-    file \
-    freeglut3-dev \
-    g++ \
-    gcc \
     git \
-    less \
-    libcurl4-openssl-dev \
-    libeigen3-dev \
-    libexpat1-dev \
-    libf2c2-dev \
-    libfftw3-3 \
-    libfftw3-dev \
-    libgdal-dev \
-    libgfortran-11-dev \
-    libglew-dev \
-    libgl1-mesa-dev \
-    libgl1-mesa-dri \
-    libgl1-mesa-glx \
-    libglib2.0-dev \
-    libglu1-mesa-dev \
-    libglw1-mesa \
-    libgomp1 \
-    libgsl-dev \
-    libgts-dev \
-    libjpeg8-dev \
-    liblapack3 \
-    libopenblas-dev \
-    libmotif-dev \
-    libnetpbm10-dev \
-    libnode-dev \
-    libpng16-16 \
-    libpng-dev \
-    libquadmath0 \
-    libqt5opengl5-dev \
-    libqt5svg5-dev \
-    libtiff5 \
-    libtiff5-dev \
-    libudunits2-dev \
-    libxext-dev \
-    libxi-dev \
-    libxm4 \
-    libxmhtml-dev \
-    libxml2-dev \
-    libxmu-dev \
-    libxmu-headers \
-    libxpm-dev \
-    libxt-dev \
-    m4 \
-    make \
-    mesa-common-dev \
-    nano \
-    rsync \
-    tcsh \
+    python3.10 \
+    python3.10-dev \
     python3-distutils \
     python3-pip \
     python3-rpy2 \
-    python-is-python3 \
-    qhull-bin \
-    xvfb \
-    zlib1g-dev
-    # libgfortran4 \
+    python-is-python3
 
-# Install Imagemagick
-apt install -y -q imagemagick
-
-# Install R
-mkdir -p ${TMPDIR}/R
-cd ${TMPDIR}/R || exit 1
-curl -O https://cdn.rstudio.com/r/ubuntu-2204/pkgs/r-{{ R_VER }}_1_amd64.deb
-apt install -y -q ./r-{{ R_VER }}_1_amd64.deb
-ln -s /opt/R/{{ R_VER }}/bin/R /usr/local/bin/R
-ln -s /opt/R/{{ R_VER }}/bin/Rscript /usr/local/bin/Rscript
-cd ${TMPDIR} || exit 1
-rm -rf ${TMPDIR}/R
-
-# Install AFNI
-mkdir -p ${TMPDIR}/afni
-cd ${TMPDIR}/afni || exit 1
-ln -s /usr/lib/x86_64-linux-gnu/libgsl.so.27 /usr/lib/x86_64-linux-gnu/libgsl.so.19
-ln -s /usr/lib/x86_64-linux-gnu/libXp.so.6 /usr/lib/x86_64-linux-gnu/libXp.so
-git clone -b AFNI_{{ AFNI_VER }} --depth=1 https://github.com/afni/afni.git ${TMPDIR}/afni/source
-cd source/src || exit 1
-cp other_builds/Makefile.linux_ubuntu_16_64_glw_local_shared Makefile
-make itall
-mv linux_ubuntu_16_64_glw_local_shared /opt/afni-AFNI_{{ AFNI_VER }}
-export PATH="/opt/afni-AFNI_{{ AFNI_VER }}:$PATH"
-export R_LIBS="/opt/R/{{ R_VER }}/bin/R"
-rPkgsInstall -pkgs ALL
-cd ${TMPDIR} || exit 1
-rm -rf ${TMPDIR}/afni
-
-# Install ANTs
-mkdir -p ${TMPDIR}/ants/build
-git clone -b v{{ ANTS_VER }} --depth=1 https://github.com/ANTsX/ANTs.git ${TMPDIR}/ants/source
-cd ${TMPDIR}/ants/build || exit 1
-cmake -DCMAKE_INSTALL_PREFIX=/opt/ants-{{ ANTS_VER }} -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF ${TMPDIR}/ants/source
-make -j 10
-mkdir -p /opt/ants-{{ ANTS_VER }}
-cd ANTS-build || exit 1
-make install
-mv ../../source/Scripts/ /opt/ants-{{ ANTS_VER }}
-cd ${TMPDIR} || exit 1
-rm -rf ${TMPDIR}/ants
-
-# Install C3D
-echo "Downloading Convert3D ..."
-mkdir -p /opt/convert3d-{{ C3D_VER }}
-curl -fsSL https://sourceforge.net/projects/c3d/files/c3d/{{ C3D_VER }}/c3d-{{ C3D_VER }}-Linux-x86_64.tar.gz/download \
-| tar -xz -C /opt/convert3d-{{ C3D_VER }} --strip-components 1
-
-# Install FSL
-mkdir -p ${TMPDIR}/fsl
-cd ${TMPDIR}/fsl || exit 1
-curl -fL https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py --output ./fslinstaller.py
-chmod +x fslinstaller.py
-python3 fslinstaller.py -d /opt/fsl-{{ FSL_VER }} -V {{ FSL_VER }}
-# echo "Installing FSL conda environment ..."
-# bash /opt/fsl-{{ FSL_VER }}/etc/fslconf/fslpython_install.sh -f /opt/fsl-{{ FSL_VER }}
-cd ${TMPDIR} || exit 1
-rm -rf ${TMPDIR}/fsl
-
-# Install MRTrix3
-mkdir -p ${TMPDIR}/mrtrix
-git clone -b {{ MRTRIX_VER }} --depth=1 https://github.com/MRtrix3/mrtrix3.git ${TMPDIR}/mrtrix
-cd ${TMPDIR}/mrtrix || exit 1
-./configure
-./build
-mkdir -p /opt/mrtrix3-{{ MRTRIX_VER }}
-mv bin icons lib LICENCE.txt matlab share /opt/mrtrix3-{{ MRTRIX_VER }}/.
-cd ${TMPDIR} || exit 1
-rm -rf ${TMPDIR}/mrtrix
-
-# Install PYTHON things.
 pip3 install pip==25.1.1 setuptools==80.7.1 wheel==0.45.1
 
 # Install datalad, nilearn, peakdet, phys2cvr.
@@ -306,10 +170,12 @@ curl https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.
 curl https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.nocsf.1.pt --output models/synthstrip.nocsf.1.pt
 # curl https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.infant.1.pt --output models/synthstrip.infant.1.pt
 
-virtualenv ssenv
+virtualenv -p /usr/bin/python3.10 ssenv
 
-source ssenv/bin/activate
+. ssenv/bin/activate
 
+pip3 install https://github.com/freesurfer/surfa/archive/ca4e26317d3556776268ede7de20752743bf49a2.zip
+pip3 install --index-url https://download.pytorch.org/whl/cpu torch==2.1.2
 pip3 install \
     filelock==3.13.1 \
     fsspec==2024.6.1 \
@@ -327,15 +193,152 @@ pip3 install \
     triton==2.1.0 \
     typing_extensions==4.15.0 \
     xxhash==3.5.0
-pip3 install https://github.com/freesurfer/surfa/archive/ca4e26317d3556776268ede7de20752743bf49a2.zip
-pip3 install --index-url https://download.pytorch.org/whl/cpu torch==2.1.2
 
 deactivate
 
 cd ${TMPDIR} || exit 1
 rm -rf ${TMPDIR}/synthstrip
 
+# Prepare repos and install dependencies
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C9A7585B49D51698710F3A115E25F516B04C661B
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 6E12762B81063D17BDDD3142F142A4D99F16EB04
+echo "deb https://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu $(lsb_release -cs) main" | tee -a /etc/apt/sources.list
+echo "deb-src https://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu $(lsb_release -cs) main" | tee -a /etc/apt/sources.list
+echo "deb https://ppa.launchpadcontent.net/c2d4u.team/c2d4u4.0+/ubuntu $(lsb_release -cs) main" | tee -a /etc/apt/sources.list
+echo "deb-src https://ppa.launchpadcontent.net/c2d4u.team/c2d4u4.0+/ubuntu $(lsb_release -cs) main" | tee -a /etc/apt/sources.list
+apt update -qq
+apt install -y -q --no-install-recommends \
+    bc \
+    bzip2 \
+    cmake \
+    csvtool \
+    dc \
+    file \
+    freeglut3-dev \
+    g++ \
+    gcc \
+    less \
+    libcurl4-openssl-dev \
+    libeigen3-dev \
+    libexpat1-dev \
+    libf2c2-dev \
+    libfftw3-3 \
+    libfftw3-dev \
+    libgdal-dev \
+    libgfortran-11-dev \
+    libglew-dev \
+    libgl1-mesa-dev \
+    libgl1-mesa-dri \
+    libgl1-mesa-glx \
+    libglib2.0-dev \
+    libglu1-mesa-dev \
+    libglw1-mesa \
+    libgomp1 \
+    libgsl-dev \
+    libgts-dev \
+    libjpeg8-dev \
+    liblapack3 \
+    libopenblas-dev \
+    libmotif-dev \
+    libnetpbm10-dev \
+    libnode-dev \
+    libpng16-16 \
+    libpng-dev \
+    libquadmath0 \
+    libqt5opengl5-dev \
+    libqt5svg5-dev \
+    libtiff5 \
+    libtiff5-dev \
+    libudunits2-dev \
+    libxext-dev \
+    libxi-dev \
+    libxm4 \
+    libxmhtml-dev \
+    libxml2-dev \
+    libxmu-dev \
+    libxmu-headers \
+    libxpm-dev \
+    libxt-dev \
+    m4 \
+    make \
+    mesa-common-dev \
+    nano \
+    rsync \
+    tcsh \
+    qhull-bin \
+    xvfb \
+    zlib1g-dev
+    # libgfortran4 \
 
+# Install Imagemagick
+apt install -y -q imagemagick
+
+# Install R
+mkdir -p ${TMPDIR}/R
+cd ${TMPDIR}/R || exit 1
+curl -O https://cdn.rstudio.com/r/ubuntu-2204/pkgs/r-{{ R_VER }}_1_amd64.deb
+apt install -y -q ./r-{{ R_VER }}_1_amd64.deb
+ln -s /opt/R/{{ R_VER }}/bin/R /usr/local/bin/R
+ln -s /opt/R/{{ R_VER }}/bin/Rscript /usr/local/bin/Rscript
+cd ${TMPDIR} || exit 1
+rm -rf ${TMPDIR}/R
+
+# Install AFNI
+mkdir -p ${TMPDIR}/afni
+cd ${TMPDIR}/afni || exit 1
+ln -s /usr/lib/x86_64-linux-gnu/libgsl.so.27 /usr/lib/x86_64-linux-gnu/libgsl.so.19
+ln -s /usr/lib/x86_64-linux-gnu/libXp.so.6 /usr/lib/x86_64-linux-gnu/libXp.so
+git clone -b AFNI_{{ AFNI_VER }} --depth=1 https://github.com/afni/afni.git ${TMPDIR}/afni/source
+cd source/src || exit 1
+cp other_builds/Makefile.linux_ubuntu_16_64_glw_local_shared Makefile
+make itall
+mv linux_ubuntu_16_64_glw_local_shared /opt/afni-AFNI_{{ AFNI_VER }}
+export PATH="/opt/afni-AFNI_{{ AFNI_VER }}:$PATH"
+export R_LIBS="/opt/R/{{ R_VER }}/bin/R"
+rPkgsInstall -pkgs ALL
+cd ${TMPDIR} || exit 1
+rm -rf ${TMPDIR}/afni
+
+# Install ANTs
+mkdir -p ${TMPDIR}/ants/build
+git clone -b v{{ ANTS_VER }} --depth=1 https://github.com/ANTsX/ANTs.git ${TMPDIR}/ants/source
+cd ${TMPDIR}/ants/build || exit 1
+cmake -DCMAKE_INSTALL_PREFIX=/opt/ants-{{ ANTS_VER }} -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF ${TMPDIR}/ants/source
+make -j 10
+mkdir -p /opt/ants-{{ ANTS_VER }}
+cd ANTS-build || exit 1
+make install
+mv ../../source/Scripts/ /opt/ants-{{ ANTS_VER }}
+cd ${TMPDIR} || exit 1
+rm -rf ${TMPDIR}/ants
+
+# Install C3D
+echo "Downloading Convert3D ..."
+mkdir -p /opt/convert3d-{{ C3D_VER }}
+curl -fsSL https://sourceforge.net/projects/c3d/files/c3d/{{ C3D_VER }}/c3d-{{ C3D_VER }}-Linux-x86_64.tar.gz/download \
+| tar -xz -C /opt/convert3d-{{ C3D_VER }} --strip-components 1
+
+# Install FSL
+mkdir -p ${TMPDIR}/fsl
+cd ${TMPDIR}/fsl || exit 1
+curl -fL https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py --output ./fslinstaller.py
+chmod +x fslinstaller.py
+python3 fslinstaller.py -d /opt/fsl-{{ FSL_VER }} -V {{ FSL_VER }}
+# echo "Installing FSL conda environment ..."
+# bash /opt/fsl-{{ FSL_VER }}/etc/fslconf/fslpython_install.sh -f /opt/fsl-{{ FSL_VER }}
+cd ${TMPDIR} || exit 1
+rm -rf ${TMPDIR}/fsl
+
+# Install MRTrix3
+mkdir -p ${TMPDIR}/mrtrix
+git clone -b {{ MRTRIX_VER }} --depth=1 https://github.com/MRtrix3/mrtrix3.git ${TMPDIR}/mrtrix
+cd ${TMPDIR}/mrtrix || exit 1
+./configure
+./build
+mkdir -p /opt/mrtrix3-{{ MRTRIX_VER }}
+mv bin icons lib LICENCE.txt matlab share /opt/mrtrix3-{{ MRTRIX_VER }}/.
+cd ${TMPDIR} || exit 1
+rm -rf ${TMPDIR}/mrtrix
 
 
 # Final removal of lists and cleanup
