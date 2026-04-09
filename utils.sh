@@ -212,17 +212,17 @@ esac
 }
 
 parse_filename_from_json() {
-	local bidslabels="task acq ce rec dir run mod echo part chunk recording suffix"
-	if [[ -f ${2} ]]
+	local bidslabels="task acq ce rec dir run mod echo flip inv mt part recording chunk suffix"
+	if [[ -f $2 ]]
 	then
-		if [[ $(jq .${1} ${2}) != "null" ]];
+		if [[ $(jq .$1 $2) != "null" ]];
 		then
 			local bidsinfo=''
 			local key
 			for key in ${bidslabels};
 			do
 				local value
-				value=$(jq -r .${1}.${key} ${2})
+				value=$(jq -r .$1.${key} $2)
 				[[ ${value} != "null" ]] && bidsinfo="${bidsinfo}_${key}-${value}"
 			done
 			echo "${bidsinfo}"
@@ -232,6 +232,55 @@ parse_filename_from_json() {
 	else
 		exit 1
 	fi
+}
+
+extract_BIDS_entities() {
+	local fname="$1"
+	local -n ent=$2
+	ent=()
+
+	local regex='
+        sub-([^_]+)
+        (_ses-([^_]+))?
+        (_task-([^_]+))?
+        (_acq-([^_]+))?
+        (_ce-([^_]+))?
+        (_rec-([^_]+))?
+        (_dir-([^_]+))?
+        (_run-([^_]+))?
+        (_mod-([^_]+))?
+        (_echo-([^_]+))?
+        (_flip-([^_]+))?
+        (_inv-([^_]+))?
+        (_mt-([^_]+))?
+        (_part-([^_]+))?
+        (_recording-([^_]+))?
+        (_chunk-([^_]+))?
+        _([^\.]+)$
+    '
+
+	[[ "$( basename ${fname} )" =~ ${regex} ]] || return 1
+
+	ent[root]=$( dirname $( realpath ${fname} ) | sed -E 's|/sub-[^_]+/ses-[^_]+/[^_]||')
+	ent[modality]=$( basename $(dirname $( realpath ${fname} ) ) )
+    ent[sub]=${BASH_REMATCH[1]}
+    ent[ses]=${BASH_REMATCH[3]:-}
+    ent[task]=${BASH_REMATCH[5]:-}
+    ent[acq]=${BASH_REMATCH[7]:-}
+    ent[ce]=${BASH_REMATCH[9]:-}
+    ent[rec]=${BASH_REMATCH[11]:-}
+    ent[dir]=${BASH_REMATCH[13]:-}
+    ent[run]=${BASH_REMATCH[15]:-}
+    ent[mod]=${BASH_REMATCH[17]:-}
+    ent[echo]=${BASH_REMATCH[21]:-}
+    ent[flip]=${BASH_REMATCH[23]:-}
+    ent[inv]=${BASH_REMATCH[25]:-}
+    ent[mt]=${BASH_REMATCH[27]:-}
+    ent[part]=${BASH_REMATCH[29]:-}
+    ent[recording]=${BASH_REMATCH[31]:-}
+    ent[chunk]=${BASH_REMATCH[33]:-}
+    ent[suffix]=${BASH_REMATCH[35]:-}
+
 }
 
 
