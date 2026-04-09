@@ -1,0 +1,60 @@
+Bootstrap: docker
+From: freesurfer/synthstrip:{{ SYNTHSTRIP_VER }}
+
+%arguments
+SYNTHSTRIP_VER=1.8
+CONDA_VER=310_25.7.0-2
+
+%environment
+# export templateloc=/usr/share/afni/atlases
+export FS_OVERRIDE=0
+export FSF_OUTPUT_FORMAT=nii.gz
+
+export DEBIAN_FRONTEND=noninteractive
+export TZ=Europe/Brussels
+
+export PATH="/usr/bin:$PATH"
+
+%files
+# Copy FS licence within the container
+./fslicense/license.txt /usr/local/freesurfer/license.txt
+
+%post
+# Set install variables, create tmp folder
+export TMPDIR="/tmp/general_preproc_build_$( date -u +"%F_%H-%M-%S" )"
+[[ -d ${TMPDIR} ]] && rm -rf ${TMPDIR}
+mkdir -p ${TMPDIR}
+export DEBIAN_FRONTEND=noninteractive
+export TZ=Europe/Brussels
+apt update -qq
+apt install -y -q --no-install-recommends ca-certificates dirmngr build-essential cmake curl g++ gcc git less nano
+
+# SynthStrip is already installed, so no Freesurfer install necessary.
+
+# Install miniconda
+mkdir -p ${TMPDIR}/miniconda
+cd ${TMPDIR}/miniconda || exit 1
+curl "https://repo.anaconda.com/miniconda/Miniconda3-py{{ CONDA_VER }}-Linux-x86_64.sh" -o ./miniconda.sh
+bash ./miniconda.sh -b -u -p /opt/miniconda3
+cd ${TMPDIR} || exit 1
+rm -rf ${TMPDIR}/miniconda
+
+# Install VesSynth
+git clone --single-branch --branch main --depth=1 https://github.com/chiara-mauri/VesSynth.git /opt/VesSynth
+cd /opt/VesSynth
+
+. /opt/miniconda3/bin/activate
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+conda env create -f vessynth-env.yml -y
+conda activate vessynth-env
+
+curl "https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/VesSynth/models.tar.gz" -o models.tar.gz
+tar -xf models.tar.gz
+rm -rf models.tar.gz
+
+# Final removal of lists and cleanup
+cd /tmp || exit 1
+rm -rf ${TMPDIR}
+rm -rf /var/lib/apt/lists/*
+
