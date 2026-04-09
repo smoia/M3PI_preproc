@@ -50,7 +50,7 @@ conda env create -f vessynth-env.yml -y
 conda activate vessynth-env
 
 curl "https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/VesSynth/models.tar.gz" -o models.tar.gz
-tar -xf models.tar.gz
+tar -xf models.tar.gz --no-same-owner
 rm -rf models.tar.gz
 
 # Final removal of lists and cleanup
