@@ -40,7 +40,7 @@ cd ${TMPDIR} || exit 1
 rm -rf ${TMPDIR}/miniconda
 
 # Install VesSynth
-git clone --single-branch --branch main --depth=1 https://github.com/chiara-mauri/VesSynth.git /opt/VesSynth
+git clone --single-branch --branch fix/modelpath --depth=1 https://github.com/smoia/VesSynth.git /opt/VesSynth
 cd /opt/VesSynth
 
 . /opt/miniconda3/bin/activate

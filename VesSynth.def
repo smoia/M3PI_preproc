@@ -40,7 +40,7 @@ cd ${TMPDIR} || exit 1
 rm -rf ${TMPDIR}/miniconda
 
 # Install VesSynth
-git clone --single-branch --branch main --depth=1 https://github.com/chiara-mauri/VesSynth.git /opt/VesSynth
+git clone --single-branch --branch fix/modelpath --depth=1 https://github.com/smoia/VesSynth.git /opt/VesSynth
 cd /opt/VesSynth
 
 . /opt/miniconda3/bin/activate
@@ -48,6 +48,8 @@ conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/ma
 conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 conda env create -f vessynth-env.yml -y
 conda activate vessynth-env
+
+pip3 install ipython
 
 curl "https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/VesSynth/models.tar.gz" -o models.tar.gz
 tar -xf models.tar.gz --no-same-owner
