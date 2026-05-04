@@ -48,7 +48,9 @@ done
 checkreqvar nii method
 checkoptvar argsbet args3dss args3dam exportbrain tmp debug
 
-[[ ${debug} == "yes" ]] && set -x
+# Debug
+[[ ${debug} == "yes" ]] && set -x && trap 'set +x' EXIT
+[[ ${debug} == "no" ]] && trap '[ "${tmp}" != "/" ] && rm -rf ${tmp}' EXIT
 
 ### Remove nifti suffix
 nii=$( removeniisfx ${nii} )
@@ -61,11 +63,9 @@ set -e
 
 cwd=$(pwd)
 
-niiname=$( basename ${nii} )
 ndir=$( dirname $( realpath ${nii} ) )
-tmp=${tmp}/${niiname}_brainmask
-
-replace_and mkdir ${tmp}
+niiname=$( basename ${nii} )
+tmp="$(mktemp --tmpdir=${tmp} -d ${niiname}_brainmask.XXXXXX)"
 
 for m in "${method[@]}"
 do
@@ -142,5 +142,3 @@ fi
 
 
 cd ${cwd}
-
-if [[ ${debug} == "yes" ]]; then set +x; else rm -rf ${tmp}; fi
