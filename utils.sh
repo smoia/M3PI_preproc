@@ -2,7 +2,10 @@
 
 version() {
 	local script_file=${1:-''}
-	tag=$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; git describe --tags --always)
+	local script_dir
+	script_dir=$( dirname "$(readlink -f "${BASH_SOURCE[0]}")" )
+	tag=0
+	[ $( git -C "${script_dir}" rev-parse --is-inside-work-tree 2>/dev/null ) == "true" ] && tag=$( git -C "${script_dir}" describe --tags --always )
 	echo "M3PI_preproc, $( basename ${script_file} ), version ${tag}"
 	echo ""
 }
@@ -237,49 +240,42 @@ parse_filename_from_json() {
 extract_BIDS_entities() {
 	local fname="$1"
 	local -n ent=$2
+	local last_entity="${3:-chunk}"
+
 	ent=()
 
-	local regex='
-        sub-([^_]+)
-        (_ses-([^_]+))?
-        (_task-([^_]+))?
-        (_acq-([^_]+))?
-        (_ce-([^_]+))?
-        (_rec-([^_]+))?
-        (_dir-([^_]+))?
-        (_run-([^_]+))?
-        (_mod-([^_]+))?
-        (_echo-([^_]+))?
-        (_flip-([^_]+))?
-        (_inv-([^_]+))?
-        (_mt-([^_]+))?
-        (_part-([^_]+))?
-        (_recording-([^_]+))?
-        (_chunk-([^_]+))?
-        _([^\.]+)$
-    '
+	local entities=(sub ses task acq ce rec dir run mod echo flip inv mt part recording chunk)
+
+	local regex='^'
+	local idx=1
+	local capture_map=()
+
+	for e in "${entities[@]}"; do
+		if [[ "$e" == "sub" ]]; then
+			regex+="sub-([^_]+)"
+			capture_map[$idx]=$e
+			((idx++))
+		else
+			regex+="(_${e}-([^_]+))?"
+			capture_map[$idx]=$e
+			((idx+=2))
+		fi
+
+		[[ "$e" == "$last_entity" ]] && break
+	done
+
+	regex+='(_(.+))?$'
 
 	[[ "$( basename ${fname} )" =~ ${regex} ]] || return 1
 
 	ent[root]=$( dirname $( realpath ${fname} ) | sed -E 's|/sub-[^_]+/ses-[^_]+/[^_]||')
 	ent[modality]=$( basename $(dirname $( realpath ${fname} ) ) )
-    ent[sub]=${BASH_REMATCH[1]}
-    ent[ses]=${BASH_REMATCH[3]:-}
-    ent[task]=${BASH_REMATCH[5]:-}
-    ent[acq]=${BASH_REMATCH[7]:-}
-    ent[ce]=${BASH_REMATCH[9]:-}
-    ent[rec]=${BASH_REMATCH[11]:-}
-    ent[dir]=${BASH_REMATCH[13]:-}
-    ent[run]=${BASH_REMATCH[15]:-}
-    ent[mod]=${BASH_REMATCH[17]:-}
-    ent[echo]=${BASH_REMATCH[21]:-}
-    ent[flip]=${BASH_REMATCH[23]:-}
-    ent[inv]=${BASH_REMATCH[25]:-}
-    ent[mt]=${BASH_REMATCH[27]:-}
-    ent[part]=${BASH_REMATCH[29]:-}
-    ent[recording]=${BASH_REMATCH[31]:-}
-    ent[chunk]=${BASH_REMATCH[33]:-}
-    ent[suffix]=${BASH_REMATCH[35]:-}
+
+	for i in "${!capture_map[@]}"; do
+		ent[${capture_map[$i]}]="${BASH_REMATCH[$i]}"
+	done
+
+	ent[suffix]="${BASH_REMATCH[$idx]}"
 
 }
 

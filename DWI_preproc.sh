@@ -40,10 +40,16 @@ done
 checkreqvar dwi
 checkoptvar degibbs nthreads tmp debug
 
-[[ ${debug} == "yes" ]] && set -x
+# Debug
+[[ ${debug} == "yes" ]] && set -x && trap 'set +x' EXIT
+[[ ${debug} == "no" ]] && trap '[ "${tmp}" != "/" ] && rm -rf ${tmp}' EXIT
 
 ### Remove nifti suffix
 dwi=$( removeniisfx ${dwi} )
+
+# Derived variables
+scriptdir=$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )
+dwiname=$( basename ${dwi} )
 
 ### Cath errors and exit on them
 set -e
@@ -58,16 +64,18 @@ echo ""
 
 cwd=$(pwd)
 
-# Parse dwi filename and force right folder's absolute path pt. 1
-workdir=$( dirname $( realpath ${dwi} ) | sed -E 's|/sub-[^_]+/ses-[^_]+/dwi||')
-scriptdir=$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )
-dwiname=$( basename ${dwi} )
+# Parse dwi filename
+declare -A bids
+extract_BIDS_entities "${dwi}" bids acq
 
-if_missing_do stop ${workdir}
-if_missing_do mkdir ${workdir}/derivatives/vessels/logs
+if_missing_do stop ${bids[root]}
+if_missing_do mkdir ${bids[root]}/code/logs
+
+# Create tmp folder
+tmp="$(mktemp --tmpdir=${tmp} -d sub-${bids[sub]}_ses-${bids[ses]}_dwipreproc.XXXXXX)"
 
 # Preparing log folder and log file, removing the previous one
-logfile=${workdir}/derivatives/vessels/logs/${dwiname}_log
+logfile=${bids[root]}/code/logs/${dwiname}_log
 replace_and touch ${logfile}
 
 echo "************************************" >> ${logfile}
@@ -83,7 +91,7 @@ echo ${printcall}
 echo ""
 echo "PATH is set to $PATH"
 checkreqvar dwi
-checkoptvar TEs tmp debug
+checkoptvar degibbs nthreads tmp debug
 
 echo "************************************"
 echo "************************************"
@@ -91,27 +99,21 @@ echo "************************************"
 echo ""
 echo ""
 echo "************************************"
-echo "***    Parse BIDS info ${dwiname}"
+echo "***    Parsed BIDS info ${dwiname}"
 echo "************************************"
 echo ""
 echo ""
 
-# Parse dwi filename and force right folder's absolute path pt. 2
-[[ "$dwiname" =~ ^sub-([^_]+)_ses-([^_]+)_(acq-([^_]+))_([^\.]+)$ ]] && \
-	sub=${BASH_REMATCH[1]} && \
-	ses=${BASH_REMATCH[2]} && \
-	acq=${BASH_REMATCH[4]:-} && \
-	dwisuffix=${BASH_REMATCH[5]}
+checkoptvar bids
 
-ddir=${workdir}/sub-${sub}/ses-${ses}/dwi
-dderivdir=${workdir}/derivatives/vessels/sub-${sub}/ses-${ses}/dwi
-rderivdir=${workdir}/derivatives/vessels/sub-${sub}/ses-${ses}/reg
-
-dwiprefix=sub-${sub}_ses-${ses}
-tmp=${tmp}/sub-${sub}_ses-${ses}_dwipreproc
+# Set various folders
+ddir=${bids[root]}/sub-${bids[sub]}/ses-${bids[ses]}/dwi
+dderivdir=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-${bids[ses]}/dwi
+rderivdir=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-${bids[ses]}/reg
+dwiprefix=sub-${bids[sub]}_ses-${bids[ses]}
 
 # First return of variables discovered so far
-checkoptvar workdir scriptdir dwiname sub ses acq dwisuffix ddir dderivdir rderivdir dwiprefix tmp
+checkoptvar scriptdir dwiname ddir dderivdir rderivdir dwiprefix
 
 # Now move to more interesting things
 cd ${ddir} || exit 1
@@ -121,7 +123,7 @@ replace_and mkdir ${tmp}
 if_missing_do mkdir ${dderivdir}
 if_missing_do mkdir ${rderivdir}
 
-for dwifile in ${dwiprefix}_*_${dwisuffix}.nii.gz
+for dwifile in ${dwiprefix}_*_${bids[suffix]}.nii.gz
 do
 	dwifile=$( basename $( removeniisfx ${dwifile} ) )
 	# Not sure we need to skip the fake b0
@@ -141,11 +143,11 @@ do
 	then
 		# MRtrix3 suggests doing degibbs after dwidenoise though
 		mrdegibbs ${tmp}/${dwifile}.mif ${tmp}/${dwifile}_degibbs.mif -force
-		dwisuffix=${dwisuffix}_degibbs
+		dwisuffix=${bids[suffix]}_degibbs
 	fi
 done
 
-dwicat -scratch ${tmp} ${tmp}/${dwiprefix}_*_${dwisuffix}.mif ${tmp}/${dwiprefix}_concat.mif
+dwicat -scratch ${tmp} ${tmp}/${dwiprefix}_*_${bids[suffix]}.mif ${tmp}/${dwiprefix}_concat.mif
 
 # Doing denoise on merged volumes and respitting out divided nifti files
 # See https://community.mrtrix.org/t/dwidenoise-correct-use/586/4
@@ -168,12 +170,12 @@ echo ""
 
 # Estimate first giving a name for folder purposes
 ${scriptdir}/blocks/pepolar.sh -nii ${dwiprefix}_dwi_concat -blipdown ${ddir}/${dwiprefix}_acq-7db0_sbref -blipup ${ddir}/${dwiprefix}_acq-40db1k_sbref \
-							   -workdir ${workdir}/derivatives/vessels -estimateonly -modality dwi -tmp ${tmp}
+							   -workdir ${bids[root]}/derivatives/vessels -estimateonly -modality dwi -tmp ${tmp}
 
 pepolardir=${dderivdir}/${dwiprefix}_dwi_concat_topup
 # Apply on blipup
 ${scriptdir}/blocks/pepolar.sh -nii ${ddir}/${dwiprefix}_acq-40db1k_sbref -pepolardir ${pepolardir} \
-							   -workdir ${workdir}/derivatives/vessels -modality dwi -tmp ${tmp}
+							   -workdir ${bids[root]}/derivatives/vessels -modality dwi -tmp ${tmp}
 
 # Use corrected blipup to make a brain mask
 # For some reason I don't want to think about, this mask can be awful. Instead I'll do a better one mixing a few options together.
@@ -208,20 +210,8 @@ mv ${tmp}/${dwiprefix}_eddied.eddy_rotated_bvecs ${dderivdir}/00.${dwiprefix}_dw
 # echo "Performing BFC on ${anat}"
 # ImageMath 4 ${tmp}/${dwiprefix}_trunc.nii.gz TruncateImageIntensity ${tmp}/${dwiprefix}_eddied.nii.gz 0.02 0.98 256
 
-N4BiasFieldCorrection -d 4 -i ${tmp}/${dwiprefix}_trunc.nii.gz -o ${dderivdir}/00.${dwiprefix}_dwi_preprocessed.nii.gz
+N4BiasFieldCorrection -d 4 -i ${tmp}/${dwiprefix}_eddied.nii.gz -o ${dderivdir}/00.${dwiprefix}_dwi_preprocessed.nii.gz
 
-# post proc
-
-# dwi2response to estiamte response function with msmt_5tt method
-# See https://mrtrix.readthedocs.io/en/0.3.16/concepts/response_function_estimation.html
-
-# dwi2fod for multi-shell multi-tissue constrained spherical deconvolution
-
-# tckgen for initial tractogram
-
-# tcksift for SIFT OR SIFT2? MAYBE OPTION
-
-# tck2connectome for connectome.
 
 echo ""
 echo ""
@@ -231,7 +221,6 @@ echo "************************************"
 
 cd ${cwd}
 
-if [[ ${debug} == "yes" ]]; then set +x; else rm -rf ${tmp}; fi
 
 
 
