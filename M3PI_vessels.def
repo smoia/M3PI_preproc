@@ -199,6 +199,42 @@ deactivate
 cd ${TMPDIR} || exit 1
 rm -rf ${TMPDIR}/synthstrip
 
+# Install miniconda
+mkdir -p ${TMPDIR}/miniconda
+cd ${TMPDIR}/miniconda || exit 1
+curl "https://repo.anaconda.com/miniconda/Miniconda3-py{{ CONDA_VER }}-Linux-x86_64.sh" -o ./miniconda.sh
+bash ./miniconda.sh -b -u -p /opt/miniconda3
+cd ${TMPDIR} || exit 1
+rm -rf ${TMPDIR}/miniconda
+
+# Install VesSynth
+git clone --single-branch --branch fix/modelpath --depth=1 https://github.com/smoia/VesSynth.git /opt/VesSynth
+cd /opt/VesSynth
+
+. /opt/miniconda3/bin/activate
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+conda env create -f vessynth-env.yml -y
+conda activate vessynth-env
+
+curl "https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/VesSynth/models.tar.gz" -o models.tar.gz
+tar -xf models.tar.gz --no-same-owner
+rm -rf models.tar.gz
+
+# Install VesselBoost
+git clone --single-branch --branch stable_ver_1_0_0_hpc https://github.com/KMarshallX/VesselBoost.git /opt/VesselBoost
+cd /opt/VesselBoost
+# git checkout 93f0e0548a05d1b5aed011d3c70c15a493f24fb5
+
+. /opt/miniconda3/bin/activate
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+conda env create -f environment.yml -y
+conda activate vessel_boost
+
+mkdir -p saved_models
+osf -p abk4p fetch /osfstorage/pretrained_models/t2s_mod_ep1k2_0728 ./saved_models/t2s_mod_ep1k2_0728
+
 # Prepare repos and install dependencies
 apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C9A7585B49D51698710F3A115E25F516B04C661B
 apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 6E12762B81063D17BDDD3142F142A4D99F16EB04

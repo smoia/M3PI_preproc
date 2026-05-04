@@ -3,6 +3,7 @@ From: freesurfer/synthstrip:{{ SYNTHSTRIP_VER }}
 
 %arguments
 SYNTHSTRIP_VER=1.8
+ANTS_VER=2.5.4
 CONDA_VER=310_25.7.0-2
 
 %environment
@@ -13,7 +14,11 @@ export FSF_OUTPUT_FORMAT=nii.gz
 export DEBIAN_FRONTEND=noninteractive
 export TZ=Europe/Brussels
 
-export PATH="/usr/bin:$PATH"
+export ANTSPATH="/opt/ants-{{ ANTS_VER }}/bin"
+export ANTSSCRIPTS="/opt/ants-{{ ANTS_VER }}/Scripts"
+export LD_LIBRARY_PATH="/opt/ants-{{ ANTS_VER }}/lib:$LD_LIBRARY_PATH"
+
+export PATH="/usr/bin:$PATH:$ANTSPATH:$ANTSSCRIPTS"
 
 %files
 # Copy FS licence within the container
@@ -27,9 +32,7 @@ mkdir -p ${TMPDIR}
 export DEBIAN_FRONTEND=noninteractive
 export TZ=Europe/Brussels
 apt update -qq
-apt install -y -q --no-install-recommends ca-certificates dirmngr build-essential cmake curl g++ gcc git less nano
-
-# SynthStrip is already installed, so no Freesurfer install necessary.
+apt install -y -q --no-install-recommends ca-certificates dirmngr build-essential cmake curl g++ gcc git less make nano
 
 # Install miniconda
 mkdir -p ${TMPDIR}/miniconda
@@ -54,6 +57,19 @@ pip3 install ipython
 curl "https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/VesSynth/models.tar.gz" -o models.tar.gz
 tar -xf models.tar.gz --no-same-owner
 rm -rf models.tar.gz
+
+# Install ANTs
+mkdir -p ${TMPDIR}/ants/build
+git clone -b v{{ ANTS_VER }} --depth=1 https://github.com/ANTsX/ANTs.git ${TMPDIR}/ants/source
+cd ${TMPDIR}/ants/build || exit 1
+cmake -DCMAKE_INSTALL_PREFIX=/opt/ants-{{ ANTS_VER }} -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF ${TMPDIR}/ants/source
+make -j 10
+mkdir -p /opt/ants-{{ ANTS_VER }}
+cd ANTS-build || exit 1
+make install
+mv ../../source/Scripts/ /opt/ants-{{ ANTS_VER }}
+cd ${TMPDIR} || exit 1
+rm -rf ${TMPDIR}/ants
 
 # Final removal of lists and cleanup
 cd /tmp || exit 1
