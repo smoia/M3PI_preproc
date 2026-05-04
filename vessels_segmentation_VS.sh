@@ -47,7 +47,6 @@ checkoptvar tmp debug
 anat=$( removeniisfx ${anat} )
 
 # Derived variables
-scriptdir=$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )
 anatname=$( basename ${anat} )
 
 ### Cath errors and exit on them
@@ -107,13 +106,6 @@ echo ""
 
 checkoptvar bids
 
-# Set various folders
-adir=${bids[root]}/sub-${bids[sub]}/ses-${bids[ses]}/anat
-anatprefix=sub-${bids[sub]}_ses-${bids[ses]}
-
-# First return of variables discovered so far
-checkoptvar adir
-
 # Create folders
 if_missing_do mkdir ${bids[root]}/VesSynthSegmentations
 
@@ -161,12 +153,12 @@ do
 		# Set various stuff
 		adir=${bids[root]}/sub-${sub}/ses-${ses}/anat
 		anatprefix=00.sub-${sub}_ses-${ses}_${bids[suffix]}
-		fileprefix=${bids[root]}/VesSynthSegmentations/${anatprefix}_imgavg_preprocessed
+		fileprefix=${bids[root]}/VesSynthSegmentations/${anatprefix}
 
-		# Oversample
-		x=$( fslval ${fileprefix}_vessels_prob dim1 )
-		y=$( fslval ${fileprefix}_vessels_prob dim2 )
-		z=$( fslval ${fileprefix}_vessels_prob dim3 )
+		# Oversample (remove empty spaces)
+		x=$( fslval ${fileprefix}_vessels_prob dim1 ); (( x=x ))
+		y=$( fslval ${fileprefix}_vessels_prob dim2 ); (( y=y ))
+		z=$( fslval ${fileprefix}_vessels_prob dim3 ); (( z=z ))
 
 		for suffix in resampledorig downsampled
 		do
@@ -176,20 +168,19 @@ do
 		done
 
 		# Dilate mask by ~7-8 mm
-		3dmask_tool -input ${adir}/${anatprefix}_brain_mask.nii.gz \
+		3dmask_tool -input ${adir}/${anatprefix%_imgavg_preprocessed*}_brain_mask.nii.gz \
 					-prefix ${tmp}/${anatprefix}_mask_dilated.nii.gz \
 					-dilate_input 40 -overwrite
 
-		${bids[root]}/sub-${sub}/ses-${ses}/anat/
 		3dcalc -a ${fileprefix}_vessels_prob.nii.gz \
 			   -b ${tmp}/${anatprefix}_resampledorig_oversampled_vessels_prob.nii.gz \
-			   -c ${tmp}/${anatprefix}_downsamples_oversampled_vessels_prob.nii.gz \
+			   -c ${tmp}/${anatprefix}_downsampled_oversampled_vessels_prob.nii.gz \
 			   -m ${tmp}/${anatprefix}_mask_dilated.nii.gz \
-			   -prefix ${bids[root]}/manualsegready/${anatprefix}_imgavg_preprocessed_vessels.nii.gz \
+			   -prefix ${bids[root]}/manualsegready/${anatprefix}_vessels.nii.gz \
 			   -expr "(step(a-0.05)+step(b-0.1)+step(c-0.1))*m" -overwrite
 
-		fslmaths ${adir}/${anatprefix}_imgavg_preprocessed -mas ${tmp}/${anatprefix}_mask_dilated \
-				 ${bids[root]}/manualsegready/${anatprefix}_imgavg_preprocessed_brain
+		fslmaths ${adir}/${anatprefix} -mas ${tmp}/${anatprefix}_mask_dilated \
+				 ${bids[root]}/manualsegready/${anatprefix}_brain
 	done
 done
 
