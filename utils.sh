@@ -247,36 +247,45 @@ extract_BIDS_entities() {
 	local entities=(sub ses task acq ce rec dir run mod echo flip inv mt part recording chunk)
 
 	local regex='^'
-	local idx=1
+	local idx=2
 	local capture_map=()
 
-	for e in "${entities[@]}"; do
-		if [[ "$e" == "sub" ]]; then
-			regex+="sub-([^_]+)"
-			capture_map[$idx]=$e
-			((idx++))
-		else
-			regex+="(_${e}-([^_]+))?"
-			capture_map[$idx]=$e
-			((idx+=2))
-		fi
-
-		[[ "$e" == "$last_entity" ]] && break
+	for e in "${entities[@]}"
+	do
+		regex+="(${e}-([^_]+))?_?"
+		capture_map[$idx]=$e
+		[[ "$e" == "$last_entity" ]] && ((fssfx=idx+1)) && echo $fssfx 
+		((idx+=2))
 	done
 
-	regex+='(_(.+))?$'
+	regex+='(([^.]+))?(\..*)?$'
 
-	[[ "$( basename ${fname} )" =~ ${regex} ]] || return 1
+	echo $regex
 
-	ent[root]=$( dirname $( realpath ${fname} ) | sed -E 's|/sub-[^_]+/ses-[^_]+/[^_]||')
+	ent[root]=$( realpath ${fname%%/sub-*} )
+	[[ ${ent[root]} == *"/derivatives/"* ]] && ent[deriv]=${ent[root]} && ent[root]=${ent[root]%%/derivatives/*}
 	ent[modality]=$( basename $(dirname $( realpath ${fname} ) ) )
 
-	for i in "${!capture_map[@]}"; do
-		ent[${capture_map[$i]}]="${BASH_REMATCH[$i]}"
+	fname=$( basename ${fname} )
+	fname=${fname#"${fname%%sub-*}"}
+
+	[[ ${fname} =~ ${regex} ]] || return 1
+
+	for i in "${!capture_map[@]}"
+	do
+		[[ -n ${BASH_REMATCH[$i]} ]] && ent[${capture_map[$i]}]=${BASH_REMATCH[$i]}
 	done
 
 	ent[suffix]="${BASH_REMATCH[$idx]}"
+	ent[extension]="${BASH_REMATCH[$idx+1]}"
 
+	ent[filesuffix]=""
+	for i in $(seq ${fssfx} 2 ${idx} )
+	do
+		echo "$i     ${BASH_REMATCH[$i]}"
+		[[ -n "${BASH_REMATCH[$i]}" ]] && ent[filesuffix]+=${BASH_REMATCH[i]}_
+	done
+	ent[filesuffix]=${ent[filesuffix]%_}
 }
 
 

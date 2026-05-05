@@ -158,12 +158,12 @@ then
 
 	# Coregister T2w to anat
 	echo "Flirt ${tmp}/${suffix}_bfc on ${aref}"
-	flirt -in ${tmp}/${suffix}_bfc -ref ${tmp}/${bids[suffix]}_bfc -cost normmi -searchcost normmi \
+	flirt -in ${tmp}/${suffix}_bfc -ref ${tmp}/${bids[filesuffix]}_bfc -cost normmi -searchcost normmi \
 		  -omat ${rderivdir}/${t2wanatname}2${bids[suffix]}_fsl.mat -o ${rderivdir}/${t2wanatname}2${bids[suffix]}_fsl.nii.gz
-	c3d_affine_tool -ref ${tmp}/${bids[suffix]}_bfc -src ${tmp}/${suffix}_bfc ${rderivdir}/${t2wanatname}2${bids[suffix]}_fsl.mat \
+	c3d_affine_tool -ref ${tmp}/${bids[filesuffix]}_bfc -src ${tmp}/${suffix}_bfc ${rderivdir}/${t2wanatname}2${bids[suffix]}_fsl.mat \
 				    -fsl2ras -oitk ${rderivdir}/${t2wanatname}2${bids[suffix]}0GenericAffine.mat
 	antsApplyTransforms -d 3 -i ${tmp}/${suffix}_bfc.nii.gz \
-						-r ${tmp}/${bids[suffix]}_bfc.nii.gz -o ${rderivdir}/${t2wanatname}2${bids[suffix]}.nii.gz \
+						-r ${tmp}/${bids[filesuffix]}_bfc.nii.gz -o ${rderivdir}/${t2wanatname}2${bids[suffix]}.nii.gz \
 						-n Linear -v -t ${rderivdir}/${t2wanatname}2${bids[suffix]}0GenericAffine.mat
 fi
 
@@ -175,13 +175,13 @@ echo "************************************"
 if [[ -e ${t2wanat} ]]
 then
 	antsApplyTransforms -d 3 -i ${aderivdir}/${t2wanatname}_brain_mask.nii.gz \
-						-r ${tmp}/${bids[suffix]}_bfc.nii.gz -o ${aderivdir}/${anatname}_brain_mask.nii.gz \
+						-r ${tmp}/${bids[filesuffix]}_bfc.nii.gz -o ${aderivdir}/${anatname}_brain_mask.nii.gz \
 						-n NearestNeighbor -t ${rderivdir}/${t2wanatname}2${bids[suffix]}0GenericAffine.mat
-	fslmaths ${tmp}/${bids[suffix]}_bfc -mas ${aderivdir}/${anatname}_brain_mask ${aderivdir}/${anatname}_brain
+	fslmaths ${tmp}/${bids[filesuffix]}_bfc -mas ${aderivdir}/${anatname}_brain_mask ${aderivdir}/${anatname}_brain
 else
-	${scriptdir}/blocks/brainmask.sh -nii ${tmp}/${bids[suffix]}_bfc.nii.gz -method fsss -tmp ${tmp}
-	mv ${tmp}/${bids[suffix]}_bfc_brain.nii.gz ${aderivdir}/${anatname}_brain.nii.gz
-	mv ${tmp}/${bids[suffix]}_bfc_brain_mask.nii.gz ${aderivdir}/${anatname}_brain_mask.nii.gz
+	${scriptdir}/blocks/brainmask.sh -nii ${tmp}/${bids[filesuffix]}_bfc.nii.gz -method fsss -tmp ${tmp}
+	mv ${tmp}/${bids[filesuffix]}_bfc_brain.nii.gz ${aderivdir}/${anatname}_brain.nii.gz
+	mv ${tmp}/${bids[filesuffix]}_bfc_brain_mask.nii.gz ${aderivdir}/${anatname}_brain_mask.nii.gz
 fi
 
 echo "************************************"

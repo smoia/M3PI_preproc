@@ -123,7 +123,7 @@ replace_and mkdir ${tmp}
 if_missing_do mkdir ${dderivdir}
 if_missing_do mkdir ${rderivdir}
 
-for dwifile in ${dwiprefix}_*_${bids[suffix]}.nii.gz
+for dwifile in ${dwiprefix}_*_${bids[filesuffix]}.nii.gz
 do
 	dwifile=$( basename $( removeniisfx ${dwifile} ) )
 	# Not sure we need to skip the fake b0
@@ -143,11 +143,11 @@ do
 	then
 		# MRtrix3 suggests doing degibbs after dwidenoise though
 		mrdegibbs ${tmp}/${dwifile}.mif ${tmp}/${dwifile}_degibbs.mif -force
-		dwisuffix=${bids[suffix]}_degibbs
+		dwisuffix=${bids[filesuffix]}_degibbs
 	fi
 done
 
-dwicat -scratch ${tmp} ${tmp}/${dwiprefix}_*_${bids[suffix]}.mif ${tmp}/${dwiprefix}_concat.mif
+dwicat -scratch ${tmp} ${tmp}/${dwiprefix}_*_${bids[filesuffix]}.mif ${tmp}/${dwiprefix}_concat.mif
 
 # Doing denoise on merged volumes and respitting out divided nifti files
 # See https://community.mrtrix.org/t/dwidenoise-correct-use/586/4

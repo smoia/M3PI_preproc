@@ -66,16 +66,16 @@ cwd=$(pwd)
 declare -A bids
 extract_BIDS_entities "${anat}" bids ses
 
-# #!# The file should be in a derivative folder, so bids[root] is the derivative folder already, not the real root 
+# #!# The file should be in a derivative folder, so bids[deriv] is available
 
 if_missing_do stop ${bids[root]}
-if_missing_do mkdir ${bids[root]}/../../code/logs
+if_missing_do mkdir ${bids[root]}/code/logs
 
 # Create tmp folder
 tmp="$(mktemp --tmpdir=${tmp} -d sub-${bids[sub]}_ses-${bids[ses]}_vesselssegmentVS.XXXXXX)"
 
 # Preparing log folder and log file, removing the previous one
-logfile=${bids[root]}/../../code/logs/${anatname}_log
+logfile=${bids[root]}/code/logs/${anatname}_log
 replace_and touch ${logfile}
 
 echo "************************************" >> ${logfile}
@@ -107,7 +107,7 @@ echo ""
 checkoptvar bids
 
 # Create folders
-if_missing_do mkdir ${bids[root]}/VesSynthSegmentations
+if_missing_do mkdir ${bids[deriv]}/VesSynthSegmentations
 
 echo ""
 echo ""
@@ -117,7 +117,7 @@ echo "************************************"
 echo ""
 echo ""
 
-for imgfile in ${bids[root]}/sub-*/ses-*/*${bids[suffix]}
+for imgfile in ${bids[deriv]}/sub-*/ses-*/*${bids[suffix]}
 do
 	x=$( fslval ${imgfile} dim1 )
 	y=$( fslval ${imgfile} dim2 )
@@ -135,25 +135,25 @@ done
 source /opt/miniconda3/bin/activate
 conda activate vessynth-env
 
-python3 /opt/VesSynth/vessynth_test.py -i ${bids[root]}/sub-*/ses-*/*${bids[suffix]}.nii.gz -o ${bids[root]}/VesSynthSegmentations -mod T2star -t 0.05 0.1
-python3 /opt/VesSynth/vessynth_test.py -i ${bids[root]}/sub-*/ses-*/*${bids[suffix]}_resampledorig.nii.gz -o ${bids[root]}/VesSynthSegmentations -mod T2star -t 0.05 0.1
-python3 /opt/VesSynth/vessynth_test.py -i ${bids[root]}/sub-*/ses-*/*${bids[suffix]}_downsampled.nii.gz -o ${bids[root]}/VesSynthSegmentations -mod T2star -t 0.05 0.1
+python3 /opt/VesSynth/vessynth_test.py -i ${bids[deriv]}/sub-*/ses-*/anat/*${bids[suffix]}.nii.gz -o ${bids[deriv]}/VesSynthSegmentations -mod T2star -t 0.05 0.1
+python3 /opt/VesSynth/vessynth_test.py -i ${bids[deriv]}/sub-*/ses-*/anat/*${bids[suffix]}_resampledorig.nii.gz -o ${bids[deriv]}/VesSynthSegmentations -mod T2star -t 0.05 0.1
+python3 /opt/VesSynth/vessynth_test.py -i ${bids[deriv]}/sub-*/ses-*/anat/*${bids[suffix]}_downsampled.nii.gz -o ${bids[deriv]}/VesSynthSegmentations -mod T2star -t 0.05 0.1
 
 subs=()
 sess=()
-mapfile -t subs < <(find "${bids[root]}" -maxdepth 1 -type d -printf "%f\n" | grep -oP 'sub-\K[^_]+' | sort -u)
-mapfile -t sess < <(find "${bids[root]}" -mindepth 2 -maxdepth 2 -type d -printf "%f\n" | grep -oP 'ses-\K[^_]+' | sort -u)
+mapfile -t subs < <(find "${bids[deriv]}" -maxdepth 1 -type d -printf "%f\n" | grep -oP 'sub-\K[^_]+' | sort -u)
+mapfile -t sess < <(find "${bids[deriv]}" -mindepth 2 -maxdepth 2 -type d -printf "%f\n" | grep -oP 'ses-\K[^_]+' | sort -u)
 
-if_missing_do mkdir ${bids[root]}/manualsegready 
+if_missing_do mkdir ${bids[deriv]}/manualsegready 
 
 for sub in ${subs[@]}
 do
 	for ses in ${sess[@]}
 	do
 		# Set various stuff
-		adir=${bids[root]}/sub-${sub}/ses-${ses}/anat
+		adir=${bids[deriv]}/sub-${sub}/ses-${ses}/anat
 		anatprefix=00.sub-${sub}_ses-${ses}_${bids[suffix]}
-		fileprefix=${bids[root]}/VesSynthSegmentations/${anatprefix}
+		fileprefix=${bids[deriv]}/VesSynthSegmentations/${anatprefix}
 
 		# Oversample (remove empty spaces)
 		x=$( fslval ${fileprefix}_vessels_prob dim1 ); (( x=x ))
@@ -176,11 +176,11 @@ do
 			   -b ${tmp}/${anatprefix}_resampledorig_oversampled_vessels_prob.nii.gz \
 			   -c ${tmp}/${anatprefix}_downsampled_oversampled_vessels_prob.nii.gz \
 			   -m ${tmp}/${anatprefix}_mask_dilated.nii.gz \
-			   -prefix ${bids[root]}/manualsegready/${anatprefix}_vessels.nii.gz \
+			   -prefix ${bids[deriv]}/manualsegready/${anatprefix}_vessels.nii.gz \
 			   -expr "(step(a-0.05)+step(b-0.1)+step(c-0.1))*m" -overwrite
 
 		fslmaths ${adir}/${anatprefix} -mas ${tmp}/${anatprefix}_mask_dilated \
-				 ${bids[root]}/manualsegready/${anatprefix}_brain
+				 ${bids[deriv]}/manualsegready/${anatprefix}_brain
 	done
 done
 

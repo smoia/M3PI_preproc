@@ -128,7 +128,7 @@ if_missing_do mkdir ${rderivdir}
 [[ ! -d ${rderivdir} ]] && exit 2
 
 # Crop and bias field correct anats
-for anatfile in ${anatprefix}_*_${bids[suffix]}.nii.gz
+for anatfile in ${anatprefix}_*_${bids[filesuffix]}.nii.gz
 do
 	anatfile=$( basename $( removeniisfx ${anatfile} ) )
 
@@ -164,13 +164,13 @@ done
 anatfiles=()
 
 # Check all possible acqs and runs when needed 
-mapfile -t acqs < <(find "${adir}" -type f -printf "%f\n" | grep "${bids[suffix]}" | grep -oP '_acq-\K[^_]+' | sort -u)
+mapfile -t acqs < <(find "${adir}" -type f -printf "%f\n" | grep "${bids[filesuffix]}" | grep -oP '_acq-\K[^_]+' | sort -u)
 
 for a in "${acqs[@]}"
 do
 	workanat=${anatprefix}_acq-${a}
 
-	mapfile -t runs < <(find "${adir}" -type f -printf "%f\n" | grep "${workanat}" | grep "${bids[suffix]}" | grep -oP '_run-\K[^_]+' | sort -u)
+	mapfile -t runs < <(find "${adir}" -type f -printf "%f\n" | grep "${workanat}" | grep "${bids[filesuffix]}" | grep -oP '_run-\K[^_]+' | sort -u)
 
 	if [ ${#runs[@]} -eq 0 ] || [[ -z "${runs[0]}" && ${#runs[@]} -eq 1 ]]
 	then
@@ -220,34 +220,34 @@ do
 	echo "Python: $( which python ) $( which python3 )"
 
 	# T2* mapping and optimal combination
-	t2smap -d ${tmp}/${anatfile}_echo-?_${bids[suffix]}_${anatpipesfx}.nii.gz --masktype none -e ${TEs} --out-dir ${tmp}/${anatfile}_TED
-	fslmaths ${tmp}/${anatfile}_TED/desc-optcom_bold.nii.gz ${tmp}/${anatfile}_optcom_${bids[suffix]}.nii.gz -odt float
-	fslmaths ${tmp}/${anatfile}_TED/T2starmap.nii.gz ${tmp}/${anatfile}_t2star_${bids[suffix]}.nii.gz -odt float
+	t2smap -d ${tmp}/${anatfile}_echo-?_${bids[filesuffix]}_${anatpipesfx}.nii.gz --masktype none -e ${TEs} --out-dir ${tmp}/${anatfile}_TED
+	fslmaths ${tmp}/${anatfile}_TED/desc-optcom_bold.nii.gz ${tmp}/${anatfile}_optcom_${bids[filesuffix]}.nii.gz -odt float
+	fslmaths ${tmp}/${anatfile}_TED/T2starmap.nii.gz ${tmp}/${anatfile}_t2star_${bids[filesuffix]}.nii.gz -odt float
 
 	# echo average
-	3dMean -prefix ${tmp}/${anatfile}_echoavg_${bids[suffix]}.nii.gz ${tmp}/${anatfile}_echo-?_${bids[suffix]}_${anatpipesfx}.nii.gz
+	3dMean -prefix ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}.nii.gz ${tmp}/${anatfile}_echo-?_${bids[filesuffix]}_${anatpipesfx}.nii.gz
 
 	# Option to run degibbs here
 	if [[ ${degibbs} == "yes" ]]
 	then
 		# MRtrix3 suggests doing degibbs after dwidenoise though
-		mrdegibbs ${tmp}/${anatfile}_echoavg_${bids[suffix]}.nii.gz ${tmp}/${anatfile}_echoavg_${bids[suffix]}_degibbs.nii.gz -force
-		fslmaths ${tmp}/${anatfile}_echoavg_${bids[suffix]}_degibbs.nii.gz -sub ${tmp}/${anatfile}_echoavg_${bids[suffix]}.nii.gz \
-				 ${tmp}/${anatfile}_echoavg_${bids[suffix]}_gibbsnoise.nii.gz
-		mv ${tmp}/${anatfile}_echoavg_${bids[suffix]}.nii.gz ${tmp}/${anatfile}_echoavg_${bids[suffix]}_undegibbed.nii.gz
-		mv ${tmp}/${anatfile}_echoavg_${bids[suffix]}_degibbs.nii.gz ${tmp}/${anatfile}_echoavg_${bids[suffix]}.nii.gz
+		mrdegibbs ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}.nii.gz ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}_degibbs.nii.gz -force
+		fslmaths ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}_degibbs.nii.gz -sub ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}.nii.gz \
+				 ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}_gibbsnoise.nii.gz
+		mv ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}.nii.gz ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}_undegibbed.nii.gz
+		mv ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}_degibbs.nii.gz ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}.nii.gz
 	fi
 
 	for imgtype in echoavg optcom t2star
 	do
-		imgfile=${tmp}/${anatfile}_${imgtype}_${bids[suffix]}.nii.gz
+		imgfile=${tmp}/${anatfile}_${imgtype}_${bids[filesuffix]}.nii.gz
 		x=$( fslval ${imgfile} dim1 ) 
 		y=$( fslval ${imgfile} dim2 ) 
 		z=$( fslval ${imgfile} dim3 )
 		(( x*=2 ))
 		(( y*=2 ))
 		(( z*=2 ))
-		ResampleImage 3 ${imgfile} ${tmp}/${anatfile}_${imgtype}_upsampled_${bids[suffix]}.nii.gz ${x}x${y}x${z} 1 0
+		ResampleImage 3 ${imgfile} ${tmp}/${anatfile}_${imgtype}_upsampled_${bids[filesuffix]}.nii.gz ${x}x${y}x${z} 1 0
 	done
 
 	# realign to vesselref (first file in input)
@@ -260,11 +260,11 @@ do
 	echo ""
 	if (( i == 0 ))
 	then
-		if_missing_do copy ${tmp}/${anatfile}_echoavg_${bids[suffix]}.nii.gz ${rderivdir}/sub-${bids[sub]}_vesselref_downsampled.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${bids[suffix]}.nii.gz ${regref}
+		if_missing_do copy ${tmp}/${anatfile}_echoavg_${bids[filesuffix]}.nii.gz ${rderivdir}/sub-${bids[sub]}_vesselref_downsampled.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${bids[filesuffix]}.nii.gz ${regref}
 		for metric in echoavg optcom t2star
 		do
-			if_missing_do copy ${tmp}/${anatfile}_${metric}_upsampled_${bids[suffix]}.nii.gz ${aderivdir}/${anatfile}_${metric}_${bids[suffix]}2vesselref.nii.gz
+			if_missing_do copy ${tmp}/${anatfile}_${metric}_upsampled_${bids[filesuffix]}.nii.gz ${aderivdir}/${anatfile}_${metric}_${bids[filesuffix]}2vesselref.nii.gz
 		done
 	else
 		for metric in echoavg optcom t2star
@@ -272,10 +272,10 @@ do
 			if grep -Fxq ${anatfile} ${scriptdir}/3dmeepi_discardlist
 			then
 				echo "  !!!  Skipping ${anatfile} ${metric} due to bad quality !!!"
-				mv ${tmp}/${anatfile}_${metric}_upsampled_${bids[suffix]}.nii.gz ${aderivdir}/${anatfile}_${metric}_${bids[suffix]}_badquality.nii.gz
+				mv ${tmp}/${anatfile}_${metric}_upsampled_${bids[filesuffix]}.nii.gz ${aderivdir}/${anatfile}_${metric}_${bids[filesuffix]}_badquality.nii.gz
 			else
-				flirt -in ${tmp}/${anatfile}_${metric}_upsampled_${bids[suffix]} -ref ${regref} -cost normcorr -searchcost normcorr -dof 6 \
-				-omat ${rderivdir}/${anatfile}2vesselref_fsl.mat -o ${aderivdir}/${anatfile}_${metric}_${bids[suffix]}2vesselref.nii.gz
+				flirt -in ${tmp}/${anatfile}_${metric}_upsampled_${bids[filesuffix]} -ref ${regref} -cost normcorr -searchcost normcorr -dof 6 \
+				-omat ${rderivdir}/${anatfile}2vesselref_fsl.mat -o ${aderivdir}/${anatfile}_${metric}_${bids[filesuffix]}2vesselref.nii.gz
 			fi
 		done
 	fi
@@ -291,28 +291,28 @@ echo ""
 echo ""
 
 # Average all echo averages, optcoms, and t2* maps
-3dMean -prefix ${aderivdir}/00.${anatprefix}_${bids[suffix]}_imgavg_preprocessed.nii.gz ${aderivdir}/${anatprefix}_*_echoavg_${bids[suffix]}2vesselref.nii.gz
-3dMean -prefix ${aderivdir}/00.${anatprefix}_${bids[suffix]}_optcom_preprocessed.nii.gz ${aderivdir}/${anatprefix}_*_optcom_${bids[suffix]}2vesselref.nii.gz
-3dMean -prefix ${aderivdir}/00.${anatprefix}_${bids[suffix]}_t2star_preprocessed.nii.gz ${aderivdir}/${anatprefix}_*_t2star_${bids[suffix]}2vesselref.nii.gz
+3dMean -prefix ${aderivdir}/00.${anatprefix}_${bids[filesuffix]}_imgavg_preprocessed.nii.gz ${aderivdir}/${anatprefix}_*_echoavg_${bids[filesuffix]}2vesselref.nii.gz
+3dMean -prefix ${aderivdir}/00.${anatprefix}_${bids[filesuffix]}_optcom_preprocessed.nii.gz ${aderivdir}/${anatprefix}_*_optcom_${bids[filesuffix]}2vesselref.nii.gz
+3dMean -prefix ${aderivdir}/00.${anatprefix}_${bids[filesuffix]}_t2star_preprocessed.nii.gz ${aderivdir}/${anatprefix}_*_t2star_${bids[filesuffix]}2vesselref.nii.gz
 
 echo ""
 echo ""
 echo "************************************"
-echo "***    Brain extract 00.${anatprefix}_${bids[suffix]}_imgavg_preprocessed"
+echo "***    Brain extract 00.${anatprefix}_${bids[filesuffix]}_imgavg_preprocessed"
 echo "************************************"
 echo ""
 echo ""
 
-${scriptdir}/blocks/brainmask.sh -nii ${aderivdir}/00.${anatprefix}_${bids[suffix]}_imgavg_preprocessed.nii.gz -method bet -tmp ${tmp} -nobrain
-mv ${aderivdir}/00.${anatprefix}_${bids[suffix]}_imgavg_preprocessed_brain_mask.nii.gz ${aderivdir}/00.${anatprefix}_${bids[suffix]}_brain_mask.nii.gz
+${scriptdir}/blocks/brainmask.sh -nii ${aderivdir}/00.${anatprefix}_${bids[filesuffix]}_imgavg_preprocessed.nii.gz -method bet -tmp ${tmp} -nobrain
+mv ${aderivdir}/00.${anatprefix}_${bids[filesuffix]}_imgavg_preprocessed_brain_mask.nii.gz ${aderivdir}/00.${anatprefix}_${bids[filesuffix]}_brain_mask.nii.gz
 
 cd ${cwd}
 
 # Final output of the preprocessing:
-# ${aderivdir}/00.${anatprefix}_${bids[suffix]}_imgavg_preprocessed.nii.gz
-# ${aderivdir}/00.${anatprefix}_${bids[suffix]}_optcom_preprocessed.nii.gz
-# ${aderivdir}/00.${anatprefix}_${bids[suffix]}_t2star_preprocessed.nii.gz
-# ${aderivdir}/00.${anatprefix}_${bids[suffix]}_mask.nii.gz
+# ${aderivdir}/00.${anatprefix}_${bids[filesuffix]}_imgavg_preprocessed.nii.gz
+# ${aderivdir}/00.${anatprefix}_${bids[filesuffix]}_optcom_preprocessed.nii.gz
+# ${aderivdir}/00.${anatprefix}_${bids[filesuffix]}_t2star_preprocessed.nii.gz
+# ${aderivdir}/00.${anatprefix}_${bids[filesuffix]}_mask.nii.gz
 
 echo ""
 echo ""
