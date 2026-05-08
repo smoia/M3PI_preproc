@@ -221,6 +221,8 @@ curl "https://ftp.nmr.mgh.harvard.edu/pub/dist/lcnpublic/dist/VesSynth/models.ta
 tar -xf models.tar.gz --no-same-owner
 rm -rf models.tar.gz
 
+conda deactivate
+
 # Install VesselBoost
 git clone --single-branch --branch stable_ver_1_0_0_hpc https://github.com/KMarshallX/VesselBoost.git /opt/VesselBoost
 cd /opt/VesselBoost
@@ -234,6 +236,8 @@ conda activate vessel_boost
 
 mkdir -p saved_models
 osf -p abk4p fetch /osfstorage/pretrained_models/t2s_mod_ep1k2_0728 ./saved_models/t2s_mod_ep1k2_0728
+
+conda deactivate
 
 # Prepare repos and install dependencies
 apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C9A7585B49D51698710F3A115E25F516B04C661B
