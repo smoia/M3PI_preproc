@@ -10,6 +10,7 @@ C3D_VER=1.0.0
 FSL_VER=6.0.7.6
 MRTRIX_VER=3.0.7
 FS_VER=8.1.0
+CONDA_VER=310_25.7.0-2
 
 %environment
 # export templateloc=/usr/share/afni/atlases
@@ -49,6 +50,10 @@ export TZ=Europe/Brussels
 export PREPROCPATH="/opt/preprocessing"
 export PATH="/usr/bin:$PATH:$AFNIPATH:$ANTSPATH:$ANTSSCRIPTS:$C3DPATH/bin:$PREPROCPATH:$PREPROCPATH/00.pipelines:$FSLDIR/bin:$FREESURFER_HOME:$MRTRIXPATH"
 
+%files
+# Copy FS licence within the container
+./fslicense/license.txt /usr/local/freesurfer/license.txt
+
 %post
 # Set install variables, create tmp folder
 export TMPDIR="/tmp/general_preproc_build_$( date -u +"%F_%H-%M-%S" )"
@@ -65,6 +70,7 @@ apt install -y -q --no-install-recommends \
     build-essential \
     curl \
     git \
+    git-annex \
     python3.10 \
     python3.10-dev \
     python3-distutils \
@@ -159,16 +165,26 @@ pip3 install \
 # Prepare Install for synthstrip
 pip3 install distlib==0.4.0 platformdirs==4.5.0 virtualenv==20.26.2
 
-# Install synthstrip
-mkdir -p ${TMPDIR}/synthstrip
-git clone -b v{{ FS_VER }} --depth=1 https://github.com/freesurfer/freesurfer.git ${TMPDIR}/synthstrip
-cd ${TMPDIR}/synthstrip/mri_synthstrip || exit 1
+# Install synthstrip by spare scheckout of freesurfer
+git init ${TMPDIR}/synthstrip
+
+cd ${TMPDIR}/synthstrip || exit 1
+
+git remote add origin git@github.com:freesurfer/freesurfer.git
+git remote add datasrc https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/repo/annex.git
+
+git sparse-checkout init --cone
+git sparse-checkout set mri_synthstrip
+git pull --depth=1 origin v{{ FS_VER }}
+git fetch datasrc
+git annex get mri_synthstrip/*.pt
+
 mkdir -p /opt/synthstrip-{{ FS_VER }}/models
-mv mri_synthstrip /opt/synthstrip-{{ FS_VER }}/.
+mv mri_synthstrip/mri_synthstrip /opt/synthstrip-{{ FS_VER }}/.
+mv mri_synthstrip/synthstrip.*.pt /opt/synthstrip-{{ FS_VER }}/models/.
+# curl https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.infant.1.pt --output /opt/synthstrip-{{ FS_VER }}/models/synthstrip.infant.1.pt
+
 cd /opt/synthstrip-{{ FS_VER }} || exit 1
-curl https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.1.pt --output models/synthstrip.1.pt
-curl https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.nocsf.1.pt --output models/synthstrip.nocsf.1.pt
-# curl https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.infant.1.pt --output models/synthstrip.infant.1.pt
 
 virtualenv -p /usr/bin/python3.10 ssenv
 
