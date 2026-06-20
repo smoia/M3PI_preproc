@@ -170,7 +170,7 @@ git init ${TMPDIR}/synthstrip
 
 cd ${TMPDIR}/synthstrip || exit 1
 
-git remote add origin git@github.com:freesurfer/freesurfer.git
+git remote add origin https://github.com/freesurfer/freesurfer.git
 git remote add datasrc https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/repo/annex.git
 
 git sparse-checkout init --cone
