@@ -254,13 +254,11 @@ extract_BIDS_entities() {
 	do
 		regex+="(${e}-([^_]+))?_?"
 		capture_map[$idx]=$e
-		[[ "$e" == "$last_entity" ]] && ((fssfx=idx+1)) && echo $fssfx 
+		[[ "$e" == "$last_entity" ]] && ((fssfx=idx+1))
 		((idx+=2))
 	done
 
 	regex+='(([^.]+))?(\..*)?$'
-
-	echo $regex
 
 	ent[root]=$( realpath ${fname%%/sub-*} )
 	[[ ${ent[root]} == *"/derivatives/"* ]] && ent[deriv]=${ent[root]} && ent[root]=${ent[root]%%/derivatives/*}
@@ -282,7 +280,6 @@ extract_BIDS_entities() {
 	ent[filesuffix]=""
 	for i in $(seq ${fssfx} 2 ${idx} )
 	do
-		echo "$i     ${BASH_REMATCH[$i]}"
 		[[ -n "${BASH_REMATCH[$i]}" ]] && ent[filesuffix]+=${BASH_REMATCH[i]}_
 	done
 	ent[filesuffix]=${ent[filesuffix]%_}

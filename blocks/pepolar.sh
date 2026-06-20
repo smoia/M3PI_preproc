@@ -49,7 +49,9 @@ done
 checkreqvar nii
 checkoptvar pepolardir blipup blipdown estimateonly workdir datatype tmp debug
 
-[[ ${debug} == "yes" ]] && set -x
+# Debug
+[[ ${debug} == "yes" ]] && set -x && trap 'set +x' EXIT
+[[ ${debug} == "no" ]] && trap '[ "${tmp}" != "/" ] && rm -rf ${tmp}' EXIT
 
 ### Remove nifti suffix
 for var in nii blipup blipdown
@@ -84,7 +86,7 @@ then
 	if_missing_do stop ${blipup}.json
 	if_missing_do stop ${blipdown}.json
 
-	pepolardir=${nderivdir}/${niiname}_topup
+	pepolardir=${nderivdir}/${niiname%_*}_topup
 
 	replace_and mkdir ${pepolardir}
 	fslmerge -t ${pepolardir}/mgdmap ${blipup} ${blipdown}
@@ -95,6 +97,8 @@ then
 		mrconvert ${blipup}.nii.gz ${tmp}/delete.nii.gz -export_pe_topup ${tmp}/blipup_topup -json_import ${blipup}.json -force
 		mrconvert ${blipdown}.nii.gz ${tmp}/delete.nii.gz -export_pe_topup ${tmp}/blipdown_topup -json_import ${blipdown}.json -force
 		cat ${tmp}/blipup_topup ${tmp}/blipdown_topup > ${pepolardir}/acqparam.txt
+	else
+		cp ${acqparams} ${pepolardir}/acqparam.txt
 	fi
 
 	echo "Computing PEpolar map for ${niiname}"
@@ -146,12 +150,8 @@ fi
 
 cd ${cwd}
 
-if [[ ${debug} == "yes" ]]; then set +x; else rm -rf ${tmp}; fi
-
-
-
 # """
-# Copyright 2022, Stefano Moia.
+# Copyright 2024, Stefano Moia.
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

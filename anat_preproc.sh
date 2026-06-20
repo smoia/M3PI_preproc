@@ -113,7 +113,7 @@ checkoptvar bids
 adir=${bids[root]}/sub-${bids[sub]}/ses-${bids[ses]}/anat
 aderivdir=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-${bids[ses]}/anat
 rderivdir=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-${bids[ses]}/reg
-anatprefix=sub-${bids[sub]}_ses-${bids[ses]}
+anatprefix=${anatname%_"${bids[filesuffix]}"*}
 
 # First return of variables discovered so far
 checkoptvar scriptdir anatname adir aderivdir rderivdir anatprefix
@@ -121,8 +121,8 @@ checkoptvar scriptdir anatname adir aderivdir rderivdir anatprefix
 # Find potential T2w file
 anatfiles=(${anat})
 
-t2wanat=$( ls ${adir}/${anatprefix} | grep T2w )
-[[ -e ${t2wanat} ]] && anatfiles+=($( removeniisfx ${t2wanat})) && t2wanatname=$( basename ${t2wanat} )
+t2wanat=$( ls ${adir}/${anatprefix}* | grep T2w.nii.gz )
+[[ -e ${t2wanat} ]] && anatfiles+=($( removeniisfx ${t2wanat})) && t2wanatname=$( basename $( removeniisfx ${t2wanat}) )
 
 # Now move to more interesting things
 cd ${adir} || exit 1
@@ -134,7 +134,7 @@ if_missing_do mkdir ${rderivdir}
 
 for anatfile in ${anatfiles[@]}
 do
-	suffix=${anatfile#"$anatprefix"}
+	suffix=${anatfile##*_}
 
 	echo "************************************"
 	echo "*** Crop and correct bias field $( basename ${anatfile} )"
@@ -156,14 +156,18 @@ then
 	mv ${tmp}/${suffix}_bfc_brain.nii.gz ${aderivdir}/${t2wanatname}_brain.nii.gz
 	mv ${tmp}/${suffix}_bfc_brain_mask.nii.gz ${aderivdir}/${t2wanatname}_brain_mask.nii.gz
 
-	# Coregister T2w to anat
-	echo "Flirt ${tmp}/${suffix}_bfc on ${aref}"
+	echo "************************************"
+	echo "*** Coregister ${t2wanatname} to ${anatname}"
+	echo "************************************"
+	echo "************************************"
+
+	echo "Flirt ${tmp}/${suffix}_bfc on ${t2wanat}"
 	flirt -in ${tmp}/${suffix}_bfc -ref ${tmp}/${bids[filesuffix]}_bfc -cost normmi -searchcost normmi \
 		  -omat ${rderivdir}/${t2wanatname}2${bids[suffix]}_fsl.mat -o ${rderivdir}/${t2wanatname}2${bids[suffix]}_fsl.nii.gz
 	c3d_affine_tool -ref ${tmp}/${bids[filesuffix]}_bfc -src ${tmp}/${suffix}_bfc ${rderivdir}/${t2wanatname}2${bids[suffix]}_fsl.mat \
 				    -fsl2ras -oitk ${rderivdir}/${t2wanatname}2${bids[suffix]}0GenericAffine.mat
 	antsApplyTransforms -d 3 -i ${tmp}/${suffix}_bfc.nii.gz \
-						-r ${tmp}/${bids[filesuffix]}_bfc.nii.gz -o ${rderivdir}/${t2wanatname}2${bids[suffix]}.nii.gz \
+						-r ${tmp}/${bids[suffix]}_bfc.nii.gz -o ${rderivdir}/${t2wanatname}2${bids[suffix]}.nii.gz \
 						-n Linear -v -t ${rderivdir}/${t2wanatname}2${bids[suffix]}0GenericAffine.mat
 fi
 
@@ -196,6 +200,14 @@ Atropos -d 3 -a ${aderivdir}/${anatname}_brain.nii.gz \
 --use-partial-volume-likelihoods 1x2x3 \
 -s 1x2 -s 2x3 \
 -v 1
+
+if [[ -e ${t2wanat} ]]
+then
+	echo "Coregister segmentation to ${t2wanatname}"
+	antsApplyTransforms -d 3 -i ${aderivdir}/${anatname}_seg.nii.gz \
+						-r ${aderivdir}/${t2wanatname}_brain.nii.gz -o ${aderivdir}/${t2wanatname}_seg.nii.gz \
+						-n MultiLabel -v -t [${rderivdir}/${t2wanatname}2${bids[suffix]}0GenericAffine.mat, 1]
+fi
 
 ## 02. Split, erode & dilate
 echo "Splitting the segmented files, eroding and dilating"
@@ -242,9 +254,6 @@ then
 	echo "************************************"
 	echo "************************************"
 
-	${scriptdir}/04.anat_normalize.sh -anat_in ${adir}/${anat1name}_brain -adir ${adir} \
-									  -std ${std} -mmres ${mmres}
-
 	std=${rderivdir}/standard
 	if_missing_do copy ${MNI}.nii.gz ${std}.nii.gz
 	if_missing_do mask ${std}.nii.gz ${std}_mask.nii.gz
@@ -274,15 +283,15 @@ then
 					 -s 3x2x1x0vox \
 					 -z 1 -v 1
 
-	if [[ ${MNIres} != "none" && ! -e ${std}_resamp_${mmres}mm.nii.gz ]]
+	if [[ ${MNIres} != "none" && ! -e ${std}_resamp_${MNIres}mm.nii.gz ]]
 	then
-		echo "Resampling ${std} at ${mmres}mm"
-		ResampleImageBySpacing 3 ${std}.nii.gz ${std}_resamp_${mmres}mm.nii.gz ${mmres} ${mmres} ${mmres} 0
-		echo "Creating mask for ${std} at ${mmres}mm"
-		fslmaths ${std}_resamp_${mmres}mm -bin ${std}_resamp_${mmres}mm_mask
+		echo "Resampling ${std} at ${MNIres}mm"
+		ResampleImageBySpacing 3 ${std}.nii.gz ${std}_resamp_${MNIres}mm.nii.gz ${MNIres} ${MNIres} ${MNIres} 0
+		echo "Creating mask for ${std} at ${MNIres}mm"
+		fslmaths ${std}_resamp_${MNIres}mm -bin ${std}_resamp_${MNIres}mm_mask
 		echo "Registering ${anatname} to resampled standard"
 		antsApplyTransforms -d 3 -i ${anatsource}.nii.gz \
-							-r ${std}_resamp_${mmres}mm.nii.gz -o ${anatname}2std_resamp_${mmres}mm.nii.gz \
+							-r ${std}_resamp_${MNIres}mm.nii.gz -o ${anatname}2std_resamp_${MNIres}mm.nii.gz \
 							-n Linear -t ${anatname}2std1Warp.nii.gz -t ${anatname}2std0GenericAffine.mat
 	fi
 fi
@@ -293,5 +302,21 @@ cd ${cwd}
 echo ""
 echo ""
 echo "************************************"
-echo "***    Preproc completed!"
+echo "***    Anat preproc completed!"
 echo "************************************"
+
+# """
+# Copyright 2024, Stefano Moia.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# """

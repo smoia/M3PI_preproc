@@ -207,25 +207,20 @@ mv ${tmp}/${dwiprefix}_eddied.eddy_rotated_bvecs ${dderivdir}/00.${dwiprefix}_dw
 # 02.2. Bias Correction
 # See dwibiascorrect
 
-# echo "Performing BFC on ${anat}"
-# ImageMath 4 ${tmp}/${dwiprefix}_trunc.nii.gz TruncateImageIntensity ${tmp}/${dwiprefix}_eddied.nii.gz 0.02 0.98 256
-
 N4BiasFieldCorrection -d 4 -i ${tmp}/${dwiprefix}_eddied.nii.gz -o ${dderivdir}/00.${dwiprefix}_dwi_preprocessed.nii.gz
 
 
 echo ""
 echo ""
 echo "************************************"
-echo "***    Preproc completed!"
+echo "***    DWI Preproc completed!"
 echo "************************************"
 
 cd ${cwd}
 
 
-
-
 # """
-# Copyright 2022, Stefano Moia.
+# Copyright 2024, Stefano Moia.
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
