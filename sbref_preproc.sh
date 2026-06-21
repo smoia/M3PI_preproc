@@ -123,7 +123,7 @@ checkoptvar scriptdir sbrefname fdir fmapdir fderivdir aderivdir rderivdir sbref
 sbreffiles=()
 
 # Limit to echo 1 and magnitude volume (all in filesuffix)
-for sfile in $( ls ${fdir}/${sbrefprefix}* | grep ${bids[filesuffix]}.nii.gz )
+for sfile in $( ls ${fdir}/${sbrefprefix}* | grep ${bids[filesuffix]}.nii.gz | sort -V )
 do
 	sbreffiles+=($( removeniisfx ${sfile}))
 done
@@ -194,7 +194,7 @@ do
 
 		# Parse again sbref filename - we want the task now.
 		sbrefprefix=${sbrefname%_"${bids[filesuffix]}"*}
-		task=${sbrefprefix##*-}
+		[[ ${sbrefprefix} =~ task-([^_]+) ]] && task=${BASH_REMATCH[1]}
 
 		t2wanatname=$( basename ${t2wanat} )
 		t2wanatname=${t2wanatname%*_brain*}
@@ -211,22 +211,22 @@ do
 
 			echo "Inverting matrix to coregister ${t2wanat} to ${sbref}"
 			
-			convert_xfm -omat ${rderivdir}/${t2wanatname}2task-${bids[task]}_sbref_fsl.mat -inverse ${rderivdir}/${sbrefprefix}2T2w_fsl.mat
-			flirt -init ${rderivdir}/${t2wanatname}2task-${bids[task]}_sbref_fsl.mat -applyxfm -in ${t2wanat} \
-				  -ref ${fderivdir}/${sbrefname}_brain -o ${rderivdir}/${t2wanatname}2task-${bids[task]}_sbref_fsl
+			convert_xfm -omat ${rderivdir}/${t2wanatname}2task-${task}_sbref_fsl.mat -inverse ${rderivdir}/${sbrefprefix}2T2w_fsl.mat
+			flirt -init ${rderivdir}/${t2wanatname}2task-${task}_sbref_fsl.mat -applyxfm -in ${t2wanat} \
+				  -ref ${fderivdir}/${sbrefname}_brain -o ${rderivdir}/${t2wanatname}2task-${task}_sbref_fsl
 		else
 			echo "Coregistering ${t2wanatname} to ${sbrefname} using normalised MI cost and 6 DoFs (Rigid body)"
-			flirt -in ${t2wanat} -ref ${fderivdir}/${sbrefname}_brain -out ${rderivdir}/${t2wanatname}2task-${bids[task]}_sbref_fsl \
-				  -omat ${rderivdir}/${t2wanatname}2task-${bids[task]}_sbref_fsl.mat \
+			flirt -in ${t2wanat} -ref ${fderivdir}/${sbrefname}_brain -out ${rderivdir}/${t2wanatname}2task-${task}_sbref_fsl \
+				  -omat ${rderivdir}/${t2wanatname}2task-${task}_sbref_fsl.mat \
 				  -searchry -90 90 -searchrx -90 90 -searchrz -90 90 -cost normmi -searchcost normmi -dof 6
 		fi
 		
 		echo "Trasforming matrix from FSL to ANTs"
-		c3d_affine_tool -ref ${fderivdir}/${sbrefname}_brain -src ${t2wanat} ${rderivdir}/${t2wanatname}2task-${bids[task]}_sbref_fsl.mat \
-						-fsl2ras -oitk ${rderivdir}/${t2wanatname}2task-${bids[task]}_sbref0GenericAffine.mat
+		c3d_affine_tool -ref ${fderivdir}/${sbrefname}_brain -src ${t2wanat} ${rderivdir}/${t2wanatname}2task-${task}_sbref_fsl.mat \
+						-fsl2ras -oitk ${rderivdir}/${t2wanatname}2task-${task}_sbref0GenericAffine.mat
 		antsApplyTransforms -d 3 -i ${t2wanat}.nii.gz \
-							-r ${fderivdir}/${sbrefname}_brain.nii.gz -o ${rderivdir}/${t2wanatname}2task-${bids[task]}_sbref.nii.gz \
-							-n Linear -t ${rderivdir}/${t2wanatname}2task-${bids[task]}_sbref0GenericAffine.mat
+							-r ${fderivdir}/${sbrefname}_brain.nii.gz -o ${rderivdir}/${t2wanatname}2task-${task}_sbref.nii.gz \
+							-n Linear -t ${rderivdir}/${t2wanatname}2task-${task}_sbref0GenericAffine.mat
 	fi
 
 	# If it's the first SBRef of the first session, then make it the universal SBRef, otherwise coregister all other SBRefs to that one.
@@ -241,7 +241,7 @@ do
 		cp ${fderivdir}/${sbrefname}_brain.nii.gz ${rderivdir}/sbref_brain.nii.gz
 		cp ${fderivdir}/${sbrefname}_brain_mask.nii.gz ${rderivdir}/sbref_brain_mask.nii.gz
 		cp ${tmp}/${sbrefname}_bfc_tpp.nii.gz ${rderivdir}/sbref.nii.gz
-		cp ${rderivdir}/${t2wanatname}2task-${bids[task]}_sbref0GenericAffine.mat ${rderivdir}/${t2wanatname}2sbref0GenericAffine.mat
+		cp ${rderivdir}/${t2wanatname}2task-${task}_sbref0GenericAffine.mat ${rderivdir}/${t2wanatname}2sbref0GenericAffine.mat
 	else
 		echo "************************************"
 		echo "*** Coregister ${sbrefname} to universal SBRef"

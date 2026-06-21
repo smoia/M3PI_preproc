@@ -469,8 +469,8 @@ do
 
 		if [[ "${den_tissues}" == "yes" ]]
 		then
-			task=${funcprefix#*task-}
-			task=${task%_*}
+			[[ ${funcprefix} =~ task-([^_]+) ]] && task=${BASH_REMATCH[1]}
+
 			[[ ${mrefvol} == "task" ]] && t2w2sbref=${rderivdir}/sub-${bids[sub]}_ses-02_T2w2task-${task}sbref0GenericAffine.mat \
 				&& seg2sbref=${fderivdir}/seg2task-${task}.nii.gz \
 				&& antsApplyTransforms -d 3 -i ${seg} -r ${mref}.nii.gz -o ${seg2sbref} \
