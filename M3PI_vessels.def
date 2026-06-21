@@ -176,12 +176,11 @@ git remote add datasrc https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/re
 git sparse-checkout init --cone
 git sparse-checkout set mri_synthstrip
 git pull --depth=1 origin v{{ FS_VER }}
-git fetch datasrc
-git annex get mri_synthstrip/*.pt
 
 mkdir -p /opt/synthstrip-{{ FS_VER }}/models
-mv mri_synthstrip/mri_synthstrip /opt/synthstrip-{{ FS_VER }}/.
-mv mri_synthstrip/synthstrip.*.pt /opt/synthstrip-{{ FS_VER }}/models/.
+mv mri_synthstrip/* /opt/synthstrip-{{ FS_VER }}/.
+curl https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.1.pt --output /opt/synthstrip-{{ FS_VER }}/models/synthstrip.1.pt
+curl https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.nocsf.1.pt --output /opt/synthstrip-{{ FS_VER }}/models/synthstrip.nocsf.1.pt
 # curl https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.infant.1.pt --output /opt/synthstrip-{{ FS_VER }}/models/synthstrip.infant.1.pt
 
 cd /opt/synthstrip-{{ FS_VER }} || exit 1
