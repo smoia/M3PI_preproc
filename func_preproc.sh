@@ -175,7 +175,6 @@ done
 
 
 # Create folders
-if_missing_do stop ${rderivdir}
 if_missing_do mkdir ${fderivdir}
 
 # Check if there is a topup folder already and if there are multiple, select the first one.
@@ -183,7 +182,19 @@ mapfile -t topupdirs < <(find "${fderivdir}/" -maxdepth 1 -type d -name "*topup*
 if [[ ${#topupdirs[@]} -gt 0 ]]; then topupdir=${topupdirs[0]}; else topupdir=""; fi
 
 # Spat reference part 1: if it's default or a file
-[[ ${mrefvol} == "default" ]] && mref=${rderivdir}/sbref_brain
+if [[ ${mrefvol} == "default" ]];
+then
+	unisbrefdir=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-01/reg
+
+	if_missing_do stop ${unisbrefdir}
+
+	[[ ${bids[ses]} -gt 1 ]] && if_missing_do mkdir ${rderivdir} \
+		&& cp ${unisbrefdir}/sbref* ${rderivdir}/. \
+		&& cp ${unisbrefdir}/*T2w2sbref0*.mat ${rderivdir}/.
+
+	mref=${rderivdir}/sbref_brain
+fi
+
 if [[ ${mrefvol} == *".nii.gz" ]]
 then
 	if [[ -e ${mrefvol} ]]
