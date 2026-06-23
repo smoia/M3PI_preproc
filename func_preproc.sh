@@ -224,7 +224,7 @@ do
 	funcsource=${funcfile}
 	
 	# Spat reference part 2: if it's none or task-based
-	if [[ ${funcprefix} == *"echo-1" ]]
+	if [[ ${funcprefix} == *"echo-1"* ]]
 	then
 		if [[ ${mrefvol} == "none" ]]
 		then
@@ -243,6 +243,7 @@ do
 						-workdir ${bids[root]}/derivatives/vessels/ \
 						-acqparams ${scriptdir}/acqparam_func.txt \
 						-tmp ${tmp}
+				topupdir=${fderivdir}/${funcprefix}_topup
 			else
 				echo "Found ${topupdir}, using it as previous run source"
 				${scriptdir}/blocks/pepolar.sh -nii ${tmp}/${funcprefix}_avg \
@@ -310,6 +311,11 @@ done
 
 if [[ "${den_tissues}" == "yes" ]]
 then
+	echo "************************************"
+	echo "*** Coregister anatomical segmentation to ${funcprefix}"
+	echo "************************************"
+	echo "************************************"
+
 	aderivdir=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-02/anat
 	seg=${aderivdir}/sub-${bids[sub]}_ses-02_UNIT1_seg_eroded.nii.gz
 	seg2t2w=${aderivdir}/../reg/sub-${bids[sub]}_ses-02_T2w2UNIT10GenericAffine.mat
@@ -317,6 +323,30 @@ then
 		&& seg2sbref=${fderivdir}/seg2sbref.nii.gz \
 		&& antsApplyTransforms -d 3 -i ${seg} -r ${mref}.nii.gz -o ${seg2sbref} \
 							  -n Linear -t ${t2w2sbref} -t ${seg2t2w}
+fi
+
+# Quick check if there was a topup run in the session, if not estimate it.
+echo "************************************"
+echo "*** Check topup for ${funcname}"
+echo "************************************"
+echo "************************************"
+
+if [ -z "${topupdir}" ] || [ ! -d "${topupdir}" ]
+then
+	echo "No previous topup run found, estimating it anew"
+	blipup=$(find "${fmapdir}/" -maxdepth 1 -name "sub-${bids[sub]}_ses-${bids[ses]}*AP*.nii.gz" | head -n 1)
+	blipdown=$(find "${fmapdir}/" -maxdepth 1 -name "sub-${bids[sub]}_ses-${bids[ses]}*PA*.nii.gz" | head -n 1)
+
+	${scriptdir}/blocks/pepolar.sh -nii ${firstechoes[0]}_fakeextrabit \
+			-blipup ${blipup} \
+			-blipdown ${blipdown} \
+			-workdir ${bids[root]}/derivatives/vessels/ \
+			-acqparams ${scriptdir}/acqparam_func.txt \
+			-estimateonly \
+			-tmp ${tmp}
+	topupdir=${fderivdir}/$( basename ${firstechoes[0]} )_topup
+else
+	echo "Found ${topupdir}, using it as previous run source"
 fi
 
 for funcsource in "${firstechoes[@]}"
@@ -392,16 +422,16 @@ do
 
 		for i in $( seq -f %04g 0 ${nTR} )
 		do
-			echo "Flirting volume ${i} of ${nTR} in ${func}"
+			echo "Flirting volume ${i} of ${nTR} in ${funcprefix}"
 			flirt -in ${tmp}/${funcprefix}_split/vol_${i} -ref ${mref} -applyxfm \
 			-init ${rderivdir}/${firstechoprefix}_mcf.mat/MAT_${i} -out ${tmp}/${funcprefix}_merge/vol_${i}
 		done
 
-		echo "Merging ${func}"
+		echo "Merging ${funcprefix}"
 		fslmerge -tr ${tmp}/${funcprefix}_mcf ${tmp}/${funcprefix}_merge/vol_* ${TR}
 
 		# 01.2. Apply mask
-		echo "BETting ${func}"
+		echo "BETting ${funcprefix}"
 		fslmaths ${tmp}/${funcprefix}_mcf -mas ${mask} ${tmp}/${funcprefix}_bet
 
 		[[ ${greyplot} == "yes" ]] && echo "Create Greyplot ${funcprefix} post motion" \
@@ -446,12 +476,13 @@ do
 
 	for e in ${preproc_vols[@]}
 	do
-		if [[ ${e} == "optcom" ]]; then funcsource=${tmp}/${funcprefix%_echo-*}_${optcom}_bet; else funcsource=${tmp}/${funcprefix%_echo-*}_echo-${e}_bet; fi
+		if [[ ${e} == "optcom" ]]; then funcsource=${tmp}/${funcprefix%_echo-*}_optcom_bet; else funcsource=${tmp}/${funcprefix%_echo-*}_echo-${e}_bet; fi
 		funcname=$( basename ${funcsource} )
 		echo "************************************"
 		echo "*** Apply Pepolar ${funcname}"
 		echo "************************************"
 		echo "************************************"
+		[[ -z "${topupdir}" || ! -d "${topupdir}" ]] && echo "Something went wrong, there is no topup directory ready." && exit 1
 		${scriptdir}/blocks/pepolar.sh -nii ${funcsource} \
 				-pepolardir ${topupdir} \
 				-workdir ${bids[root]}/derivatives/vessels/ \
