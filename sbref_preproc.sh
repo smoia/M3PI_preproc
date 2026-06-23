@@ -183,22 +183,20 @@ do
 	mv ${tmp}/${sbrefname}_bfc_tpp_brain.nii.gz ${fderivdir}/${sbrefname}_brain.nii.gz
 	mv ${tmp}/${sbrefname}_bfc_tpp_brain_mask.nii.gz ${fderivdir}/${sbrefname}_brain_mask.nii.gz
 
+	# Parse again sbref filename - we want the task now.
+	sbrefprefix=${sbrefname%_"${bids[filesuffix]}"*}
+	[[ ${sbrefprefix} =~ task-([^_]+) ]] && task=${BASH_REMATCH[1]}
 
 	if [[ -e ${t2wanat} ]]
 	then
 
 		echo "************************************"
-		echo "*** Coregister to T2w anat ${sbrefname}"
+		echo "*** Coregister ${sbrefname} to T2w anat"
 		echo "************************************"
 		echo "************************************"
-
-		# Parse again sbref filename - we want the task now.
-		sbrefprefix=${sbrefname%_"${bids[filesuffix]}"*}
-		[[ ${sbrefprefix} =~ task-([^_]+) ]] && task=${BASH_REMATCH[1]}
 
 		t2wanatname=$( basename ${t2wanat} )
 		t2wanatname=${t2wanatname%*_brain*}
-		t2wanat=$( removeniisfx ${t2wanat} )
 
 		if [[ "${bbr}" == "yes" ]]
 		then
@@ -209,7 +207,7 @@ do
 			flirt -in ${fderivdir}/${sbrefname}_brain -ref ${t2wanat} -out ${rderivdir}/${sbrefprefix}2T2w_fsl -omat ${rderivdir}/${sbrefprefix}2T2w_fsl.mat \
 				  -searchcost bbr -cost normmi -wmseg ${tmp}/wm.nii.gz -dof 6 -searchry -90 90 -searchrx -90 90 -searchrz -90 90
 
-			echo "Inverting matrix to coregister ${t2wanat} to ${sbref}"
+			echo "Inverting matrix to coregister ${t2wanat%.nii*} to ${sbref}"
 			
 			convert_xfm -omat ${rderivdir}/${t2wanatname}2task-${task}_sbref_fsl.mat -inverse ${rderivdir}/${sbrefprefix}2T2w_fsl.mat
 			flirt -init ${rderivdir}/${t2wanatname}2task-${task}_sbref_fsl.mat -applyxfm -in ${t2wanat} \
@@ -224,7 +222,7 @@ do
 		echo "Trasforming matrix from FSL to ANTs"
 		c3d_affine_tool -ref ${fderivdir}/${sbrefname}_brain -src ${t2wanat} ${rderivdir}/${t2wanatname}2task-${task}_sbref_fsl.mat \
 						-fsl2ras -oitk ${rderivdir}/${t2wanatname}2task-${task}_sbref0GenericAffine.mat
-		antsApplyTransforms -d 3 -i ${t2wanat}.nii.gz \
+		antsApplyTransforms -d 3 -i ${t2wanat} \
 							-r ${fderivdir}/${sbrefname}_brain.nii.gz -o ${rderivdir}/${t2wanatname}2task-${task}_sbref.nii.gz \
 							-n Linear -t ${rderivdir}/${t2wanatname}2task-${task}_sbref0GenericAffine.mat
 	fi

@@ -374,7 +374,7 @@ do
 	# Now continue with all other echoes
 	for e in $( seq 2 ${#echoes[@]} )
 	do
-		funcprefix=${funcprefix%-?}-${e}
+		funcprefix=${funcprefix%_echo-*}_echo-${e}
 		funcsource=${funcsource%_echo-*}_echo-${e}_${funcsource#*_echo-?_}
 		[[ ! -e ${funcsource}.nii.gz ]] && echo "!!! WARNING: ${funcsource}.nii.gz not found, skipping" \
 			&& continue
@@ -436,9 +436,9 @@ do
 
 	# Housekeeping 
 	[[ ${preproc_optcom} == "yes" ]] && preproc_vols+=( optcom ) \
-		&& fslmaths ${fderivdir}/${funcprefix}_meica/desc-optcom_bold.nii.gz ${tmp}/${funcprefix%-?}-optcom_bet -odt float
+		&& fslmaths ${fderivdir}/${funcprefix}_meica/desc-optcom_bold.nii.gz ${tmp}/${funcprefix%_echo-*}_optcom_bet -odt float
 
-	[[ ${preproc_echoes} == "yes" ]] && preproc_vols+=( $( seq 1 ${nTE}) )
+	[[ ${preproc_echoes} == "yes" ]] && preproc_vols+=( $( seq 1 ${#echoes[@]} ) )
 
 	#!# Add ortho steps 
 
@@ -446,7 +446,7 @@ do
 
 	for e in ${preproc_vols[@]}
 	do
-		funcsource=${tmp}/${funcprefix%-?}-${e}_bet
+		if [[ ${e} == "optcom" ]]; then funcsource=${tmp}/${funcprefix%_echo-*}_${optcom}_bet; else funcsource=${tmp}/${funcprefix%_echo-*}_echo-${e}_bet; fi
 		funcname=$( basename ${funcsource} )
 		echo "************************************"
 		echo "*** Apply Pepolar ${funcname}"
@@ -458,7 +458,6 @@ do
 				-tmp ${tmp}
 
 		funcsource=${funcsource}_tpp
-
 
 		echo "************************************"
 		echo "*** Func Nuiscomp ${funcname}"
@@ -498,7 +497,7 @@ do
 		fi
 
 		echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++"
-		echo "# Running 3dDeconvolve with the following parameters:"e
+		echo "# Running 3dDeconvolve with the following parameters:"
 		echo "   + Denoise motion regressors:         ${den_motreg}"
 		echo "   + Denoise legendre polynomials:      ${den_detrend}"
 		echo "   + Denoise meica rejected components: ${den_meica}"
