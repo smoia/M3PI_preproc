@@ -184,10 +184,13 @@ if [[ ${#topupdirs[@]} -gt 0 ]]; then topupdir=${topupdirs[0]}; else topupdir=""
 # Spat reference part 1: if it's default or a file
 if [[ ${mrefvol} == "default" ]];
 then
+	echo "Checking for universal SBRef"
+
 	unisbrefdir=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-01/reg
 
 	if_missing_do stop ${unisbrefdir}
 
+	echo "Copying universal SBRef in session reg folder"
 	[[ ${bids[ses]} -gt 1 ]] && if_missing_do mkdir ${rderivdir} \
 		&& cp ${unisbrefdir}/sbref* ${rderivdir}/. \
 		&& cp ${unisbrefdir}/*T2w2sbref0*.mat ${rderivdir}/.
@@ -340,6 +343,7 @@ then
 	${scriptdir}/blocks/pepolar.sh -nii ${firstechoes[0]}_fakeextrabit \
 			-blipup ${blipup} \
 			-blipdown ${blipdown} \
+			-nref ${mref}.nii.gz \
 			-workdir ${bids[root]}/derivatives/vessels/ \
 			-acqparams ${scriptdir}/acqparam_func.txt \
 			-estimateonly \
@@ -401,8 +405,8 @@ do
 	firstechoprefix=${funcprefix}
 	firstechosource=${funcsource}
 
-	# Now continue with all other echoes
-	for e in $( seq 2 ${#echoes[@]} )
+	# Now continue with all other echoes, as well as repeat on first echo cause apparently it's not registered correctly.
+	for e in $( seq 1 ${#echoes[@]} )
 	do
 		funcprefix=${funcprefix%_echo-*}_echo-${e}
 		funcsource=${funcsource%_echo-*}_echo-${e}_${funcsource#*_echo-?_}
@@ -473,11 +477,13 @@ do
 	#!# Add ortho steps 
 
 	# Func preproc part 4: Final steps
+	noechofuncprefix=${firstechoprefix%_echo-*}
 
 	for e in ${preproc_vols[@]}
 	do
-		if [[ ${e} == "optcom" ]]; then funcsource=${tmp}/${funcprefix%_echo-*}_optcom_bet; else funcsource=${tmp}/${funcprefix%_echo-*}_echo-${e}_bet; fi
+		if [[ ${e} == "optcom" ]]; then funcsource=${tmp}/${noechofuncprefix}_optcom_bet; else funcsource=${tmp}/${noechofuncprefix}_echo-${e}_bet; fi
 		funcname=$( basename ${funcsource} )
+		funcprefix=${funcname%_bet*}
 		echo "************************************"
 		echo "*** Apply Pepolar ${funcname}"
 		echo "************************************"
@@ -503,8 +509,8 @@ do
 		-x1D_stop"
 
 		[[ "${polort}" -gt -1 ]] && run3dDeconvolve="${run3dDeconvolve} -polort ${polort}" && den_detrend="yes ${polort} degree(s)"
-		[[ "${den_motreg}" == "yes" ]] && run3dDeconvolve="${run3dDeconvolve} -ortvec ${fderivdir}/${funcprefix}_mcf_demean.par motdemean \
-														   -ortvec ${fderivdir}/${funcprefix}_mcf_deriv1.par motderiv1"
+		[[ "${den_motreg}" == "yes" ]] && run3dDeconvolve="${run3dDeconvolve} -ortvec ${fderivdir}/${firstechoprefix}_mcf_demean.par motdemean \
+														   -ortvec ${fderivdir}/${firstechoprefix}_mcf_deriv1.par motderiv1"
 		[[ "${den_meica}" == "yes" ]] && run3dDeconvolve="${run3dDeconvolve} -ortvec ${fderivdir}/${firstechoprefix}_rejected.1D meica"
 		
 
@@ -561,7 +567,7 @@ do
 			echo "************************************"
 			echo "************************************"
 
-			3dBlurInMask -input ${funcsource}.nii.gz -prefix ${tmp}/${funcprefix}_sm.nii.gz -preserve -FWHM ${fwhm} -overwrite
+			3dBlurInMask -input ${funcsource}.nii.gz -mask ${mask} -prefix ${tmp}/${funcprefix}_sm.nii.gz -preserve -FWHM ${fwhm} -overwrite
 			funcsource=${tmp}/${funcprefix}_sm
 		fi
 
