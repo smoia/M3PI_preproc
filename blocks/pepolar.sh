@@ -10,6 +10,7 @@ source $( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../utils.sh
 pepolardir=none
 blipup=none
 blipdown=none
+nref=default
 applytopup=yes
 workdir=/data/derivatives/vessels
 datatype=func
@@ -30,6 +31,7 @@ do
 		-pepolardir)	pepolardir=$2;shift;;	# Directory containing PEPolar files from a previous run.
 		-blipup)		blipup=$2;shift;;		# File with same PE as nii for PEPolar estimation.
 		-blipdown)		blipdown=$2;shift;;		# File with opposite PE as nii for PEPolar estimation.
+		-nref)			nref=$2;shift;;			# Spatial reference for blips. Default to (first volume of) nii file. If datatype is dwi, registration will be skept unless a different file is given. Set to "none" to skip
 		-estimateonly)	applytopup=no;;			# Estimate topup only, don't apply it to the input.
 		-workdir)		workdir=$2;shift;;		# Directory of nifti derivatives (derivatives root).
 		-datatype)		datatype=$2;shift;;		# BIDS datatype of the nifti file.
@@ -47,13 +49,13 @@ done
 
 # Check input
 checkreqvar nii
-checkoptvar pepolardir blipup blipdown estimateonly workdir datatype tmp debug
+checkoptvar pepolardir blipup blipdown nref estimateonly workdir datatype tmp debug
 
 # Debug
 [[ ${debug} == "yes" ]] && set -x && trap 'set +x' EXIT
 [[ ${debug} == "no" ]] && trap '[ "${tmp}" != "/" ] && rm -rf ${tmp}' EXIT
 
-### Remove nifti suffix
+### Remove nifti suffix, except from nref for check
 for var in nii blipup blipdown
 do
 	eval "${var}=$( removeniisfx ${!var} )"
@@ -89,6 +91,48 @@ then
 	pepolardir=${nderivdir}/${niiname%_*}_topup
 
 	replace_and mkdir ${pepolardir}
+
+	# Coregister blips to nref volume if needed
+	if [[ ${nref} == "default" ]]
+	then
+		if [[ ${datatype} == "dwi" ]]
+		then
+			nref="none"
+		else
+			nref=${nii}.nii.gz
+		fi
+	elif [[ -e ${nref} ]]
+	then
+		echo "Using ${nref} as spatial reference"
+	elif [[ -e ${nref}.nii.gz ]]
+	then
+		nref=${nref}.nii.gz
+		echo "Using ${nref} as spatial reference"
+	elif [[ ${nref} == "none" ]]
+	then
+		echo "Skip spatial registration of blipup and blipdown volumes"
+	else
+		echo "ERROR: ${nref} specified but not found"
+		exit 1
+	fi
+
+	if [[ ${nref} == *".nii.gz" ]]
+	then
+		[[ $( fslval ${nref} dim4 ) -gt 1 ]] && nref=${tmp}/nref.nii.gz && fslroi ${nii} ${nref} 0 1
+	fi
+
+	if [[ ${nref} != "none" ]]
+	then
+		echo "Coregistering blip files to ${nref}"
+		flirt -in ${blipup} -ref ${nref} -omat ${tmp}/blip_to_func.mat -dof 6 -nosearch
+	    
+	    # Apply the same matrix to both full blipup and blipdown
+	    flirt -in ${blipup} -ref ${nref} -applyxfm -init ${tmp}/blip_to_func.mat -out ${tmp}/blipup_aligned
+	    flirt -in ${blipdown} -ref ${nref} -applyxfm -init ${tmp}/blip_to_func.mat -out ${tmp}/blipdown_aligned
+	    blipup=${tmp}/blipup_aligned
+	    blipdown=${tmp}/blipdown_aligned
+	fi
+
 	fslmerge -t ${pepolardir}/mgdmap ${blipup} ${blipdown}
 
 	if [[ ${acqparams} == "none" ]]
