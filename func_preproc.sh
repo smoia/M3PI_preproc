@@ -567,7 +567,7 @@ do
 			echo "************************************"
 			echo "************************************"
 
-			3dBlurInMask -input ${funcsource}.nii.gz -mask ${mask} -prefix ${tmp}/${funcprefix}_sm.nii.gz -preserve -FWHM ${fwhm} -overwrite
+			3dBlurInMask -input ${funcsource}.nii.gz -mask ${mask}.nii.gz -prefix ${tmp}/${funcprefix}_sm.nii.gz -preserve -FWHM ${fwhm} -overwrite
 			funcsource=${tmp}/${funcprefix}_sm
 		fi
 
