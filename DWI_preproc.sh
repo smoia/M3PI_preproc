@@ -158,7 +158,7 @@ dwicat -scratch ${tmp} ${tmp}/${dwiprefix}_*_${dwisuffix}.mif ${tmp}/${dwiprefix
 # However see https://qsiprep.readthedocs.io/en/stable/preprocessing.html#denoising-and-merging-images
 mkdir -p ${dderivdir}/${dwiprefix}_dwidenoise
 dwidenoise ${tmp}/${dwiprefix}_concat.mif ${tmp}/${dwiprefix}_denoised.mif -noise ${dderivdir}/${dwiprefix}_dwidenoise/noise.nii.gz -force
-mrcalc ${tmp}/${dwiprefix}_concat.mif ${tmp}/${dwiprefix}_denoised.mif -subtract ${dderivdir}/${dwiprefix}_dwidenoise/residuals.nii.gz
+mrcalc ${tmp}/${dwiprefix}_concat.mif ${tmp}/${dwiprefix}_denoised.mif -subtract ${dderivdir}/${dwiprefix}_dwidenoise/residuals.nii.gz -force
 
 mrconvert -export_grad_fsl ${dderivdir}/${dwiprefix}_concat.bvec ${dderivdir}/${dwiprefix}_concat.bval -strides -1,+2,+3,+4 \
 		  ${tmp}/${dwiprefix}_denoised.mif ${tmp}/${dwiprefix}_denoised.nii.gz -force
@@ -173,12 +173,12 @@ echo ""
 
 # Estimate first giving a name for folder purposes
 ${scriptdir}/blocks/pepolar.sh -nii ${dderivdir}/${dwiprefix}_dwi_concat -blipdown ${ddir}/${dwiprefix}_acq-7db0_sbref -blipup ${ddir}/${dwiprefix}_acq-40db1k_sbref \
-							   -workdir ${bids[root]}/derivatives/vessels -estimateonly -modality dwi -tmp ${tmp}
+							   -workdir ${bids[root]}/derivatives/vessels -estimateonly -datatype dwi -tmp ${tmp}
 
-pepolardir=${dderivdir}/${dwiprefix}_dwi_concat_topup
+pepolardir=${dderivdir}/${dwiprefix}_dwi_topup
 # Apply on blipup
 ${scriptdir}/blocks/pepolar.sh -nii ${ddir}/${dwiprefix}_acq-40db1k_sbref -pepolardir ${pepolardir} \
-							   -workdir ${bids[root]}/derivatives/vessels -modality dwi -tmp ${tmp}
+							   -workdir ${bids[root]}/derivatives/vessels -datatype dwi -tmp ${tmp}
 
 # Use corrected blipup to make a brain mask
 # For some reason I don't want to think about, this mask can be awful. Instead I'll do a better one mixing a few options together.
@@ -200,13 +200,12 @@ echo ${eddyindex} > ${pepolardir}/eddyindex
 eddy --imain=${tmp}/${dwiprefix}_denoised.nii.gz --mask=${dderivdir}/${dwiprefix}_dwi_brain_mask \
 	 --acqp=${pepolardir}/acqparam.txt --topup=${pepolardir}/outtp --index=${pepolardir}/eddyindex \
 	 --bvecs=${dderivdir}/${dwiprefix}_concat.bvec --bvals=${dderivdir}/${dwiprefix}_concat.bval \
-	 --json=${dwifile}.json --nthr=${nthreads} \
-	 --out=${tmp}/${dwiprefix}_eddied
+	 --json=${ddir}/${dwifile}.json --out=${tmp}/${dwiprefix}_eddied --verbose
 
-mv ${tmp}/${dwiprefix}_eddied.eddy.json ${dderivdir}/00.${dwiprefix}_dwi_preprocessed_eddy_parameters.json
-mv ${tmp}/${dwiprefix}_eddied.eddy_shell_indicies.json ${dderivdir}/00.${dwiprefix}_dwi_preprocessed_shell_indexes.json
-mv ${tmp}/${dwiprefix}_eddied.eddy_rotated_bvecs ${dderivdir}/00.${dwiprefix}_dwi_preprocessed.bvecs
+cp ${tmp}/${dwiprefix}_eddied.eddy_rotated_bvecs ${dderivdir}/00.${dwiprefix}_dwi_preprocessed.bvecs
+replace_and mkdir ${dderivdir}/${dwiprefix}_eddy
 
+for f in ${tmp}/${dwiprefix}_eddied.e*; do mv ${f} ${dderivdir}/${dwiprefix}_eddy/${f#*.eddy_}; done
 
 # Bias field correction (why only now?) with ants N4
 # 02.2. Bias Correction
