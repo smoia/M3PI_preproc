@@ -163,16 +163,15 @@ do
 	if [[ "${excluded_tasks}" != *"${task}"* ]]
 	then
 		funcprefix=${func%_task-*}_task-
-		funcmid=${func#"${funcprefix}"} && funcmid=${funcmid%_echo-*}_echo-
+		funcmid=_${func#"${funcprefix}"*_} && funcmid=${funcmid%_echo-*}_echo-
 		for e in ${echoes[@]}
 		do
 			#!# check that bids filesuffix has the extension inside.
-			ffile=${funcprefix}${funcmid}${e}_${bids[filesuffix]}
+			ffile=${funcprefix}${task}${funcmid}${e}_${bids[filesuffix]}
 			[[ -e ${ffile}.nii.gz ]] && funcfiles+=($( removeniisfx ${ffile}))
 		done
 	fi
 done
-
 
 # Create folders
 if_missing_do mkdir ${fderivdir}
