@@ -312,20 +312,24 @@ do
 	[[ "${funcname}" == *"echo-1"* ]] && firstechoes+=(${funcsource})
 done
 
-if [[ "${den_tissues}" == "yes" ]]
+aderivdir=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-02/anat
+seg=${aderivdir}/sub-${bids[sub]}_ses-02_UNIT1_seg_eroded.nii.gz
+
+if [[ "${den_tissues}" == "yes" ]] && [[ -e ${seg} ]]
 then
 	echo "************************************"
 	echo "*** Coregister anatomical segmentation to ${funcprefix}"
 	echo "************************************"
 	echo "************************************"
 
-	aderivdir=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-02/anat
-	seg=${aderivdir}/sub-${bids[sub]}_ses-02_UNIT1_seg_eroded.nii.gz
 	seg2t2w=${aderivdir}/../reg/sub-${bids[sub]}_ses-02_T2w2UNIT10GenericAffine.mat
 	[[ ${mrefvol} == "default" ]] && t2w2sbref=${rderivdir}/sub-${bids[sub]}_ses-02_T2w2sbref0GenericAffine.mat \
 		&& seg2sbref=${fderivdir}/seg2sbref.nii.gz \
 		&& antsApplyTransforms -d 3 -i ${seg} -r ${mref}.nii.gz -o ${seg2sbref} \
 							  -n Linear -t ${t2w2sbref} -t ${seg2t2w}
+elif [[ "${den_tissues}" == "yes" ]] && [[ ! -e ${seg} ]]
+then
+	echo "!!! WARNING: segmentation ${seg} not found."
 fi
 
 # Quick check if there was a topup run in the session, if not estimate it.
