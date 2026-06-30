@@ -9,6 +9,7 @@ source $( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/utils.sh
 # Preparing the default values for variables
 degibbs=no
 nthreads=2
+bbr=yes
 tmp=/tmp
 debug=no
 
@@ -26,6 +27,8 @@ do
 		-degibbs)	degibbs=yes;;		# Turn on deGibbs artifacts denoising.
 		-nthreads)	nthreads=$2;shift;;	# Number of threads to use for eddy.
 
+		-no_bbr)	bbr=no;;			# Use normal coregistration rather than BBR.
+
 		-tmp)		tmp=$2;shift;;		# Folder for temporary files. If not in debug mode, it'll be deleted at the end.
 		-debug)		debug=yes;;			# Turn on debug mode.
 
@@ -38,7 +41,7 @@ done
 
 # Check input
 checkreqvar dwi
-checkoptvar degibbs nthreads tmp debug
+checkoptvar degibbs nthreads bbr tmp debug
 
 # Debug
 [[ ${debug} == "yes" ]] && set -x && trap 'set +x' EXIT
@@ -91,7 +94,7 @@ echo ${printcall}
 echo ""
 echo "PATH is set to $PATH"
 checkreqvar dwi
-checkoptvar degibbs nthreads tmp debug
+checkoptvar degibbs nthreads bbr tmp debug
 
 echo "************************************"
 echo "************************************"
@@ -115,15 +118,13 @@ dwiprefix=sub-${bids[sub]}_ses-${bids[ses]}
 # First return of variables discovered so far
 checkoptvar scriptdir dwiname ddir dderivdir rderivdir dwiprefix
 
-# Now move to more interesting things
-cd ${ddir} || exit 1
-
 # Create folders
 replace_and mkdir ${tmp}
 if_missing_do mkdir ${dderivdir}
 if_missing_do mkdir ${rderivdir}
 
-for dwifile in ${dwiprefix}_*_${bids[filesuffix]}.nii.gz
+# Now move to more interesting things
+for dwifile in ${ddir}/${dwiprefix}_*_${bids[filesuffix]}.nii.gz
 do
 	dwifile=$( basename $( removeniisfx ${dwifile} ) )
 	# Not sure we need to skip the fake b0
@@ -137,17 +138,19 @@ do
 	echo ""
 	echo ""
 
-	mrconvert -fslgrad ${dwifile}.bvec ${dwifile}.bval  -json_import ${dwifile}.json -strides 0,0,0,1 ${dwifile}.nii.gz ${tmp}/${dwifile}.mif -force
+	mrconvert -fslgrad ${ddir}/${dwifile}.bvec ${ddir}/${dwifile}.bval  -json_import ${ddir}/${dwifile}.json -strides 0,0,0,1 ${ddir}/${dwifile}.nii.gz ${tmp}/${dwifile}.mif -force
 
 	if [[ ${degibbs} == "yes" ]]
 	then
 		# MRtrix3 suggests doing degibbs after dwidenoise though
 		mrdegibbs ${tmp}/${dwifile}.mif ${tmp}/${dwifile}_degibbs.mif -force
 		dwisuffix=${bids[filesuffix]}_degibbs
+	else
+		dwisuffix=${bids[filesuffix]}
 	fi
 done
 
-dwicat -scratch ${tmp} ${tmp}/${dwiprefix}_*_${bids[filesuffix]}.mif ${tmp}/${dwiprefix}_concat.mif
+dwicat -scratch ${tmp} ${tmp}/${dwiprefix}_*_${dwisuffix}.mif ${tmp}/${dwiprefix}_concat.mif
 
 # Doing denoise on merged volumes and respitting out divided nifti files
 # See https://community.mrtrix.org/t/dwidenoise-correct-use/586/4
@@ -155,7 +158,7 @@ dwicat -scratch ${tmp} ${tmp}/${dwiprefix}_*_${bids[filesuffix]}.mif ${tmp}/${dw
 # However see https://qsiprep.readthedocs.io/en/stable/preprocessing.html#denoising-and-merging-images
 mkdir -p ${dderivdir}/${dwiprefix}_dwidenoise
 dwidenoise ${tmp}/${dwiprefix}_concat.mif ${tmp}/${dwiprefix}_denoised.mif -noise ${dderivdir}/${dwiprefix}_dwidenoise/noise.nii.gz -force
-mrcalc ${tmp}/${dwiprefix}_concat.mif ${tmp}/${dwiprefix}_denoised.mif -subtract ${dderivdir}/${dwiprefix}_dwidenoise/residulas.nii.gz
+mrcalc ${tmp}/${dwiprefix}_concat.mif ${tmp}/${dwiprefix}_denoised.mif -subtract ${dderivdir}/${dwiprefix}_dwidenoise/residuals.nii.gz
 
 mrconvert -export_grad_fsl ${dderivdir}/${dwiprefix}_concat.bvec ${dderivdir}/${dwiprefix}_concat.bval -strides -1,+2,+3,+4 \
 		  ${tmp}/${dwiprefix}_denoised.mif ${tmp}/${dwiprefix}_denoised.nii.gz -force
@@ -169,7 +172,7 @@ echo ""
 echo ""
 
 # Estimate first giving a name for folder purposes
-${scriptdir}/blocks/pepolar.sh -nii ${dwiprefix}_dwi_concat -blipdown ${ddir}/${dwiprefix}_acq-7db0_sbref -blipup ${ddir}/${dwiprefix}_acq-40db1k_sbref \
+${scriptdir}/blocks/pepolar.sh -nii ${dderivdir}/${dwiprefix}_dwi_concat -blipdown ${ddir}/${dwiprefix}_acq-7db0_sbref -blipup ${ddir}/${dwiprefix}_acq-40db1k_sbref \
 							   -workdir ${bids[root]}/derivatives/vessels -estimateonly -modality dwi -tmp ${tmp}
 
 pepolardir=${dderivdir}/${dwiprefix}_dwi_concat_topup
@@ -188,12 +191,14 @@ fslmaths ${tmp}/${dwiprefix}_acq-40db1k_sbref_tpp -mas ${dderivdir}/${dwiprefix}
 
 # Prepare index file for eddy
 eddyindex=""
+
 for i in $( seq 1 $( fslval ${tmp}/${dwiprefix}_denoised dim4 ) ); do eddyindex="${eddyindex} 1"; done
-echo ${eddyindex} > ${tmp}/eddyindex
+
+echo ${eddyindex} > ${pepolardir}/eddyindex
 
 # Run eddy
 eddy --imain=${tmp}/${dwiprefix}_denoised.nii.gz --mask=${dderivdir}/${dwiprefix}_dwi_brain_mask \
-	 --acqp=${pepolardir}/acqparam.txt --topup=${pepolardir}/outtp --index=${tmp}/eddyindex \
+	 --acqp=${pepolardir}/acqparam.txt --topup=${pepolardir}/outtp --index=${pepolardir}/eddyindex \
 	 --bvecs=${dderivdir}/${dwiprefix}_concat.bvec --bvals=${dderivdir}/${dwiprefix}_concat.bval \
 	 --json=${dwifile}.json --nthr=${nthreads} \
 	 --out=${tmp}/${dwiprefix}_eddied
@@ -209,6 +214,81 @@ mv ${tmp}/${dwiprefix}_eddied.eddy_rotated_bvecs ${dderivdir}/00.${dwiprefix}_dw
 
 N4BiasFieldCorrection -d 4 -i ${tmp}/${dwiprefix}_eddied.nii.gz -o ${dderivdir}/00.${dwiprefix}_dwi_preprocessed.nii.gz
 
+# Realignment
+aderivdir=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-02/anat
+if [[ -d ${aderivdir} ]]
+then
+	t2wanat=$( ls ${aderivdir}/* | grep T2w | grep brain.nii.gz )
+
+	if [[ -e ${t2wanat} ]]
+	then
+
+		t2wanatname=$( basename ${t2wanat} )
+		t2wanatname=${t2wanatname%*_brain*}
+		seg=${t2wanat%_brain*}_seg
+
+		dwiref=${dderivdir}/${dwiprefix}_dwi_brain
+		dwirefname=${dwiprefix}_dwi_brain
+
+		echo "************************************"
+		echo "*** Coregister ${dwirefname} to T2w anat"
+		echo "************************************"
+		echo "************************************"
+
+
+		if [[ "${bbr}" == "yes" ]]
+		then
+			echo "Coregistering ${dwirefname} to ${t2wanatname} using normalised BBR search cost, normalised MI cost, and 6 DoFs (Rigid body)"
+			# Extract WM, then make sure it's in anat space
+			fslmaths ${seg}.nii.gz -thr 3 ${tmp}/wm.nii.gz
+
+			flirt -in ${dwiref} -ref ${t2wanat} -out ${rderivdir}/${dwiprefix}_dwi2T2w_fsl -omat ${rderivdir}/${dwiprefix}_dwi2T2w_fsl.mat \
+				  -searchcost bbr -cost normmi -wmseg ${tmp}/wm.nii.gz -dof 6 -searchry -90 90 -searchrx -90 90 -searchrz -90 90
+
+			echo "Inverting matrix to coregister ${t2wanat%.nii*} to ${dwirefname}"
+			
+			convert_xfm -omat ${rderivdir}/${t2wanatname}2dwi_fsl.mat -inverse ${rderivdir}/${dwiprefix}_dwi2T2w_fsl.mat
+			flirt -init ${rderivdir}/${t2wanatname}2dwi_fsl.mat -applyxfm -in ${t2wanat} \
+				  -ref ${dwiref}_brain -o ${rderivdir}/${t2wanatname}2dwi_fsl
+		else
+			echo "Coregistering ${t2wanatname} to ${dwirefname} using normalised MI cost and 6 DoFs (Rigid body)"
+			flirt -in ${t2wanat} -ref ${dwiref} -out ${rderivdir}/${t2wanatname}2dwi_fsl \
+				  -omat ${rderivdir}/${t2wanatname}2dwi_fsl.mat \
+				  -searchry -90 90 -searchrx -90 90 -searchrz -90 90 -cost normmi -searchcost normmi -dof 6
+		fi
+		
+		echo "Trasforming matrix from FSL to ANTs"
+		c3d_affine_tool -ref ${dwiref} -src ${t2wanat} ${rderivdir}/${t2wanatname}2dwi_fsl.mat \
+						-fsl2ras -oitk ${rderivdir}/${t2wanatname}2dwi0GenericAffine.mat
+		antsApplyTransforms -d 3 -i ${t2wanat} \
+							-r ${dwiref}.nii.gz -o ${rderivdir}/${t2wanatname}2dwi.nii.gz \
+							-n Linear -t ${rderivdir}/${t2wanatname}2dwi0GenericAffine.mat
+
+
+		t1wanat=$( ls ${aderivdir}/* | grep UNIT1 | grep brain.nii.gz )
+		t2w2t1w=${bids[root]}/derivatives/vessels/sub-${bids[sub]}/ses-02/reg/${t2wanatname}2UNIT10GenericAffine.mat
+
+		if [[ -e ${t1wanat} && -e ${t2w2t1w} ]]
+		then
+			t1wanatname=$( basename ${t1wanat} )
+			t1wanatname=${t1wanatname%*_brain*}
+
+			echo "************************************"
+			echo "*** Coregister T1w anat to ${dwirefname}"
+			echo "************************************"
+			echo "************************************"
+
+			antsApplyTransforms -d 3 -i ${t1wanat} \
+								-r ${dwiref}.nii.gz -o ${rderivdir}/${t1wanatname}2dwi.nii.gz \
+								-n Linear -t ${rderivdir}/${t2wanatname}2dwi0GenericAffine.mat \
+								-t [${t2w2t1w},1]
+		fi
+	else
+		echo "No T2w data found, skipping coregistration"
+	fi
+else
+	echo "No anatomical derivatives found, skipping coregistration"
+fi
 
 echo ""
 echo ""
