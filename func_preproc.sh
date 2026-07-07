@@ -190,7 +190,7 @@ then
 	if_missing_do stop ${unisbrefdir}
 
 	echo "Copying universal SBRef in session reg folder"
-	[[ ${bids[ses]} -gt 1 ]] && if_missing_do mkdir ${rderivdir} \
+	[[ $((10#${bids[ses]})) -gt 1 ]] && if_missing_do mkdir ${rderivdir} \
 		&& cp ${unisbrefdir}/sbref* ${rderivdir}/. \
 		&& cp ${unisbrefdir}/*T2w2sbref0*.mat ${rderivdir}/.
 
