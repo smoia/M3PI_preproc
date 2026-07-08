@@ -74,8 +74,7 @@ checkoptvar mrefvol preproc_echoes preproc_optcom voldiscard despike slicetimein
 
 # Debug
 [[ ${debug} == "yes" ]] && set -x && trap 'set +x' EXIT
-[[ ${debug} == "no" ]] && trap '[ "${tmp}" != "/" ] && rm -rf ${tmp}' EXIT
-
+[[ ${debug} == "no" ]] && trap '[ -n "${tmp}" ] && [ "${tmp}" != "/" ] && rm -rf ${tmp}' EXIT
 ### Remove nifti suffix
 func=$( removeniisfx ${func})
 

@@ -53,8 +53,7 @@ checkoptvar pepolardir blipup blipdown nref estimateonly workdir datatype tmp de
 
 # Debug
 [[ ${debug} == "yes" ]] && set -x && trap 'set +x' EXIT
-[[ ${debug} == "no" ]] && trap '[ "${tmp}" != "/" ] && rm -rf ${tmp}' EXIT
-
+[[ ${debug} == "no" ]] && trap '[ -n "${tmp}" ] && [ "${tmp}" != "/" ] && rm -rf ${tmp}' EXIT
 ### Remove nifti suffix, except from nref for check
 for var in nii blipup blipdown
 do

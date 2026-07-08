@@ -49,8 +49,7 @@ checkreqvar dwi parc
 checkoptvar mask tt5 maxlength n_fibers sift_version nthreads tmp debug
 # Debug
 [[ ${debug} == "yes" ]] && set -x && trap 'set +x' EXIT
-[[ ${debug} == "no" ]] && trap '[ "${tmp}" != "/" ] && rm -rf ${tmp}' EXIT
-
+[[ ${debug} == "no" ]] && trap '[ -n "${tmp}" ] && [ "${tmp}" != "/" ] && rm -rf ${tmp}' EXIT
 ### Remove nifti suffix
 dwi=$( removeniisfx ${dwi} )
 
